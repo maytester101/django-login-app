@@ -18,6 +18,12 @@ export class ApiError extends Error {
   }
 }
 
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+
+function apiUrl(path: string): string {
+  return `${API_BASE}${path}`;
+}
+
 function getCookie(name: string): string | null {
   if (typeof document === "undefined") {
     return null;
@@ -28,11 +34,21 @@ function getCookie(name: string): string | null {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
+let csrfToken: string | null = null;
 let csrfReady: Promise<void> | null = null;
 
 async function ensureCsrf(): Promise<void> {
   if (!csrfReady) {
-    csrfReady = fetch("/api/csrf/", { credentials: "include" }).then(() => undefined);
+    csrfReady = (async () => {
+      const response = await fetch(apiUrl("/api/csrf/"), {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new ApiError("Could not load CSRF token.", response.status);
+      }
+      const data = (await response.json()) as { csrfToken?: string };
+      csrfToken = data.csrfToken || getCookie("csrftoken");
+    })();
   }
   await csrfReady;
 }
@@ -45,7 +61,7 @@ async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T
 
   const headers = new Headers(options.headers);
   if (method !== "GET" && method !== "HEAD") {
-    const token = getCookie("csrftoken");
+    const token = csrfToken || getCookie("csrftoken");
     if (token) {
       headers.set("X-CSRFToken", token);
     }
@@ -54,7 +70,7 @@ async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(path, {
+  const response = await fetch(apiUrl(path), {
     ...options,
     headers,
     credentials: "include",
