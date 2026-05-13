@@ -1,6 +1,6 @@
 # Django login app
 
-A small Django application for testing sign-in, registration, and login-attempt logging. It includes a public login page, account creation, a protected page that lists every login attempt, and optional deployment to Vercel with a Neon Postgres database.
+A small Django application for testing sign-in, registration, and login-attempt logging. The **Next.js** app in `frontend/` is the UI; **Django** serves JSON under `/api/` and uses Neon Postgres on Vercel.
 
 ## Features
 
@@ -12,15 +12,46 @@ A small Django application for testing sign-in, registration, and login-attempt 
 
 Successful sign-ins and the first session after registration are recorded in the database.
 
-## Routes
+## Next.js frontend
 
 | Path | Description |
 |------|-------------|
-| `/` | Login |
-| `/register/` | Create account |
-| `/attempts/` | Login attempts (requires authentication) |
-| `/logout/` | End session (POST) |
-| `/admin/` | Django admin |
+| `/` | Sign in |
+| `/register` | Create account |
+| `/attempts` | Login attempts (requires authentication) |
+
+Run the API and UI together locally:
+
+```bash
+# Terminal 1 — Django API
+cd django-login-app
+source .venv/bin/activate
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver 127.0.0.1:8000
+
+# Terminal 2 — Next.js
+cd django-login-app/frontend
+npm install
+npm run dev
+```
+
+Open http://localhost:3000. Next.js rewrites `/api/*` to `http://127.0.0.1:8000` (override with `API_BACKEND_URL`).
+
+## Django API
+
+| Path | Method | Description |
+|------|--------|-------------|
+| `/api/csrf/` | GET | CSRF cookie for browser clients |
+| `/api/login/` | POST | Sign in |
+| `/api/register/` | POST | Create account |
+| `/api/logout/` | POST | End session |
+| `/api/me/` | GET | Current user |
+| `/api/attempts/` | GET | Login attempts |
+
+Legacy server-rendered HTML routes under `/`, `/register/`, and `/attempts/` remain for now.
+
+## Legacy Django HTML routes
 
 ## Local development
 
@@ -66,13 +97,17 @@ The project is configured for [Vercel’s Django support](https://vercel.com/doc
 | `DJANGO_DEBUG` | Set to `true` for local debug mode (default off in production) |
 | `DJANGO_ALLOWED_HOSTS` | Optional comma-separated extra hosts |
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | Optional comma-separated origins for CSRF |
+| `FRONTEND_ORIGIN` | Next.js origin for CORS/CSRF (e.g. `http://localhost:3000` or your Vercel frontend URL) |
+| `CORS_ALLOWED_ORIGINS` | Optional extra CORS origins (comma-separated) |
+| `API_BACKEND_URL` | Next.js rewrite target for `/api/*` (default `http://127.0.0.1:8000`) |
 
 Vercel sets `VERCEL`, `VERCEL_URL`, and related values automatically.
 
 ## Project layout
 
 - `config/` — Django settings and root URLs
-- `accounts/` — views, `LoginAttempt` model, templates
+- `accounts/` — views, API, `LoginAttempt` model, templates
+- `frontend/` — Next.js UI
 - `build_vercel.py` — Vercel build: verify Postgres URL, run migrations
 - `pyproject.toml` — Python dependencies and Vercel entrypoint
 

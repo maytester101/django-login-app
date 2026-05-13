@@ -6,5 +6,11 @@ staticfiles/
 .env
 .env.local
 .env.production.vercel
+.env.prod-main
 .vercel
+.vercel.django-ui/
+.vercel.api.json
 .DS_Store
+frontend/node_modules/
+frontend/.next/
+frontend/.env*.local

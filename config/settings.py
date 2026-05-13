@@ -44,7 +44,10 @@ if ON_VERCEL and not (os.environ.get("DJANGO_SECRET_KEY") or "").strip():
         "Set DJANGO_SECRET_KEY in Vercel → Settings → Environment Variables."
     )
 
-DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() in ("1", "true", "yes")
+DEBUG = os.environ.get(
+    "DJANGO_DEBUG",
+    "False" if ON_VERCEL else "True",
+).lower() in ("1", "true", "yes")
 
 VERCEL_URL = os.environ.get("VERCEL_URL", "")
 
@@ -82,10 +85,13 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "rest_framework",
+    "corsheaders",
     "accounts",
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -179,6 +185,35 @@ LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "attempts"
 LOGOUT_REDIRECT_URL = "login"
 
+_cors_origins = []
+_frontend_origin = os.environ.get("FRONTEND_ORIGIN", "").strip().rstrip("/")
+if _frontend_origin:
+    _cors_origins.append(_frontend_origin)
+else:
+    _cors_origins.extend(
+        [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+        ]
+    )
+
+for origin in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(","):
+    origin = origin.strip().rstrip("/")
+    if origin and origin not in _cors_origins:
+        _cors_origins.append(origin)
+
+CORS_ALLOWED_ORIGINS = _cors_origins
+CORS_ALLOW_CREDENTIALS = True
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+}
+
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:8000",
     "http://127.0.0.1:8000",
@@ -199,13 +234,23 @@ for origin in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(","):
     if origin:
         CSRF_TRUSTED_ORIGINS.append(origin)
 
+for origin in _cors_origins:
+    if origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(origin)
+
 if ON_VERCEL:
     SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
 
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
 
-if not DEBUG:
+if _frontend_origin:
+    SESSION_COOKIE_SAMESITE = "None"
+    CSRF_COOKIE_SAMESITE = "None"
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+if not DEBUG and ON_VERCEL:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_SSL_REDIRECT = True
