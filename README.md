@@ -41,8 +41,6 @@ The browser UI calls the API host directly in production (session cookies and CS
 | `/api/me/` | GET | Current user |
 | `/api/attempts/` | GET | Login attempts |
 
-Legacy server-rendered HTML routes under `/`, `/register/`, and `/attempts/` still exist on the Django app for local use or direct API-host access.
-
 ## Local development
 
 Requirements: **Python 3.10+** for the API (Vercel uses 3.12) and **Node.js** for the frontend.
@@ -135,7 +133,7 @@ Vercel sets `VERCEL`, `VERCEL_URL`, and related values automatically.
 ## Project layout
 
 - `config/` — Django settings and root URLs
-- `accounts/` — HTML views, REST API (`api_views.py`), `LoginAttempt` model, templates
+- `accounts/` — API views, auth services, `LoginAttempt` model
 - `frontend/` — Next.js UI (`app/`, `lib/api.ts`, `vercel.json`)
 - `build_vercel.py` — Vercel API build: require Postgres URL, run migrations
 - `pyproject.toml` — Python dependencies and Django Vercel entrypoint

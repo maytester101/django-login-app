@@ -181,9 +181,7 @@ STORAGES = {
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-LOGIN_URL = "login"
-LOGIN_REDIRECT_URL = "attempts"
-LOGOUT_REDIRECT_URL = "login"
+LOGIN_URL = "/admin/login/"
 
 _cors_origins = []
 _frontend_origin = os.environ.get("FRONTEND_ORIGIN", "").strip().rstrip("/")
