@@ -4,12 +4,16 @@ Home for all QA artifacts: findings, test plans, strategies, manual checklists, 
 
 Owned by **Q** (QA manager). Updated as we go.
 
-## Files
+## Files & directories
 
-| File | Purpose |
+| Path | Purpose |
 |------|---------|
+| `SKILL.md` | Q's manager playbook — how Q operates as QA lead for this repo. |
 | `findings.md` | Running bug log. Every bug, UX issue, or risk gets an ID and an entry here. |
-| _(more to come)_ | Test plans, strategy docs, exploratory checklists, automation. |
+| `specialists/` | Specialist QA skills (api-tester, security-tester, ui-tester, etc.). Q dispatches these to ephemeral subagents. See [`specialists/README.md`](specialists/README.md). |
+| `plans/` | Test plans for specific features or releases. _(empty for now)_ |
+| `investigations/` | Long-form investigations that don't fit in a single finding. _(empty for now)_ |
+| `release-notes/` | Per-release go/no-go writeups. _(empty for now)_ |
 
 ## Conventions
 
