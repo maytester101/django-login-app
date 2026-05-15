@@ -99,13 +99,24 @@ Always prioritize in roughly this order unless the user narrows scope:
 Each specialist is a SKILL.md describing a focused QA role. To use one,
 spawn an isolated subagent and pass the specialist's brief as the task.
 
-| Specialist | Lives at | Trigger |
-|---|---|---|
-| `api-tester` | `qa/specialists/api-tester/SKILL.md` | API endpoint changes; need to validate request/response contracts |
-| `security-tester` | `qa/specialists/security-tester/SKILL.md` | Auth changes; pre-release; periodic prod audits |
-| `ui-tester` | `qa/specialists/ui-tester/SKILL.md` | `frontend/` changes; user-flow validation |
-| `data-tester` | `qa/specialists/data-tester/SKILL.md` | Model or migration changes; data integrity questions |
-| `exploratory-tester` | `qa/specialists/exploratory-tester/SKILL.md` | High-risk releases; "try to break it" mode |
+| Specialist | Lives at | Model | Trigger |
+|---|---|---|---|
+| `api-tester` | `qa/specialists/api-tester/SKILL.md` | `ollama/llama3.2:latest` | API endpoint changes; need to validate request/response contracts |
+| `security-tester` | `qa/specialists/security-tester/SKILL.md` | `ollama/qwen2.5:14b` | Auth changes; pre-release; periodic prod audits |
+| `ui-tester` | `qa/specialists/ui-tester/SKILL.md` | `ollama/llama3.2:latest` | `frontend/` changes; user-flow validation |
+| `data-tester` | `qa/specialists/data-tester/SKILL.md` | `ollama/llama3.1:8b` | Model or migration changes; data integrity questions |
+| `exploratory-tester` | `qa/specialists/exploratory-tester/SKILL.md` | `ollama/qwen2.5:14b` | High-risk releases; "try to break it" mode |
+
+**Model policy:** all specialists run on local Ollama models (free, no
+external API calls). Q (manager) is the only role on a hosted model
+(`opus`). Per-specialist model is documented in each specialist's
+"Recommended dispatch config" section — use that as the source of truth.
+
+**⚠️ Verification duty:** because specialists run on smaller local models,
+Q must sanity-check every finding before promoting it into
+`qa/findings.md`. Re-run the repro. Cross-check against source. Discard
+anything that doesn't hold up. Local-model output is first-pass triage,
+not final verdict.
 
 If a specialist doesn't exist yet, **don't fake it.** Either do the work
 yourself (and note that the specialist is missing in `findings.md` as a
