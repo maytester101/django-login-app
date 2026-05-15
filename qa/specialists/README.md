@@ -13,13 +13,23 @@ and how to dispatch them.
 
 ## Roster
 
-| Specialist | Status | Focus |
-|---|---|---|
-| `api-tester` | _planned (PR #4)_ | REST endpoint contracts: status codes, payloads, auth boundaries, error shapes |
-| `security-tester` | _planned (PR #4)_ | Auth bypass, CSRF, injection, XSS, rate limiting, timing attacks |
-| `ui-tester` | _planned (PR #5)_ | End-to-end browser flows with Playwright; happy paths and error states |
-| `data-tester` | _planned_ | Model integrity, migration safety, login-attempt logging fidelity |
-| `exploratory-tester` | _planned_ | Free-form "try to break it" sessions for high-risk releases |
+| Specialist | Status | Model | Focus |
+|---|---|---|---|
+| `api-tester` | ✅ [`api-tester/SKILL.md`](api-tester/SKILL.md) | `ollama/llama3.2:latest` | REST endpoint contracts: status codes, payloads, auth boundaries, error shapes |
+| `security-tester` | ✅ [`security-tester/SKILL.md`](security-tester/SKILL.md) | `ollama/qwen2.5:14b` | Auth bypass, CSRF, injection, XSS, rate limiting, timing attacks |
+| `ui-tester` | _planned (PR #5)_ | `ollama/llama3.2:latest` | End-to-end browser flows with Playwright; happy paths and error states |
+| `data-tester` | _planned_ | `ollama/llama3.1:8b` | Model integrity, migration safety, login-attempt logging fidelity |
+| `exploratory-tester` | _planned_ | `ollama/qwen2.5:14b` | Free-form "try to break it" sessions for high-risk releases |
+
+**Model policy:** all specialists run on local Ollama models (free, no
+hosted-API calls). Q (the manager) is the only role on a hosted model
+(`opus`). Each specialist's `SKILL.md` documents the recommended model
+in its "Recommended dispatch config" section.
+
+**⚠️ Output verification:** specialist findings are first-pass triage.
+Local models are smaller and weaker than frontier ones, so Q **must**
+re-verify every finding before promoting it to `qa/findings.md`. See
+each specialist's "Output verification" note.
 
 When a specialist exists, its row gets a ✅ and the `Status` column shows
 the file path.
