@@ -107,15 +107,23 @@ spawn an isolated subagent and pass the specialist's brief as the task.
 | `data-tester` ✅ | `qa/specialists/data-tester/SKILL.md` | `ollama/qwen2.5:14b` | Model or migration changes; data integrity questions; SQLite-vs-Neon parity |
 | `exploratory-tester` ✅ | `qa/specialists/exploratory-tester/SKILL.md` | `ollama/qwen2.5:14b` | High-risk releases; bug-class follow-ups; "try to break it" mode |
 
-**Model policy:** all specialists default to **`ollama/qwen2.5:14b`** per
-May's direction on 2026-05-16. **No opus fallback** — if a specialist
-dispatch returns empty or malformed findings, the manager (Q) must
-report the failure to the user and stop, NOT run the probes inline on
-opus or retry against another local model. Q (manager) is still the
-only role that uses a hosted model for its own work (planning, review,
-synthesis); but specialist runs stay on the local model. If the local
-model can't do the work, the work doesn't get done by a specialist on
-this run — surface that as a failed dispatch and wait for direction.
+**Model policy:** all specialists default to **`ollama/qwen2.5:14b`**
+per May's direction on 2026-05-16.
+
+**Opus fallback on empty dispatch (May's direction 12:55 EDT,
+2026-05-16).** If a specialist dispatch finishes and its findings.md
+is still unchanged on disk (or doesn't contain at least one
+`BUG-<PREFIX>-NNN` entry), the manager (Q) **runs the probes inline
+on opus** — reading the specialist's SKILL.md, executing the probes
+with the manager's tools, and writing the findings file directly.
+Do NOT re-dispatch another subagent on opus; do the work inline. Be
+explicit when reporting back that the run was a manager-inline
+fallback rather than a clean specialist dispatch.
+
+Trigger for fallback: the dispatch's run ends and the specialist's
+`qa/specialists/<name>/findings.md` either was not modified since
+before the dispatch started, or contains zero `BUG-<PREFIX>-NNN`
+entries after parsing. No retry against another local model.
 
 **⚠️ Verification duty:** because specialists run on smaller local models,
 Q must sanity-check every finding before promoting it into
