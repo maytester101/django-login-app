@@ -161,7 +161,7 @@ File structure:
 
 **Run:** <UTC timestamp>
 **Specialist:** data-tester
-**Model:** <e.g. ollama/llama3.1:8b, or whatever actually ran>
+**Model:** <e.g. ollama/gpt-oss:20b, or whatever actually ran>
 **Backends tested:** <SQLite local / Neon branch / Neon prod read-only>
 **Migrations applied:** <list>
 **Scope:** <what you actually probed>

@@ -174,7 +174,7 @@ File structure:
 
 **Run:** <UTC timestamp>
 **Specialist:** ui-tester
-**Model:** <e.g. ollama/llama3.2:latest, or whatever actually ran>
+**Model:** <e.g. ollama/gpt-oss:20b, or whatever actually ran>
 **Browser(s):** <Chromium 12x / WebKit 17x / Firefox 12x>
 **Environment:** <production URL | preview URL | localhost dev>
 **Scope:** <what you actually drove>
