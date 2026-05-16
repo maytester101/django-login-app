@@ -27,7 +27,7 @@ Read this whole file before doing anything.
 
 When Q dispatches this specialist, use:
 
-- **Model:** `ollama/qwen2.5:14b` (strongest local model available — adversarial reasoning needs the best brain we can give it without going hosted)
+- **Model:** `ollama/gpt-oss:20b` (verified locally to handle strict structured-output format — qwen2.5:14b was tested first and emitted meta-commentary instead of following the format)
 - **Thinking:** medium-high
 - **Context:** isolated
 
@@ -185,7 +185,7 @@ File structure:
 
 **Run:** <UTC timestamp>
 **Specialist:** security-tester
-**Model:** ollama/qwen2.5:14b
+**Model:** ollama/gpt-oss:20b
 **Environment:** <local | preview | production with URL>
 **Threats covered:** <subset of the list>
 **Probes that required authorization:** <list, or "none">

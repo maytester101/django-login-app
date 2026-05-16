@@ -26,7 +26,7 @@ Read this whole file before doing anything.
 
 When Q dispatches this specialist, use:
 
-- **Model:** `ollama/llama3.2:latest` (3B, local, free — mechanical work doesn't need a frontier model)
+- **Model:** `ollama/gpt-oss:20b` (local, verified to follow strict structured-output format — smaller locals like llama3.2:3b emit JSON-shaped garbage)
 - **Thinking:** low
 - **Context:** isolated
 
@@ -183,7 +183,7 @@ File structure:
 
 **Run:** <UTC timestamp>
 **Specialist:** api-tester
-**Model:** ollama/llama3.2:latest
+**Model:** ollama/gpt-oss:20b
 **Environment:** <local | preview | production with URL>
 **Scope:** <what you actually tested>
 

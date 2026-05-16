@@ -28,9 +28,9 @@ Fix order: **BUG-SEC-002 → BUG-SEC-001 → BUG-002 → BUG-SEC-003 → BUG-API
 | Manager-direct (`BUG-NNN`) | [`findings.md`](findings.md) (this file) | 2 | 0 | 0 | 0 |
 | api-tester (`BUG-API-NNN`) | [`specialists/api-tester/findings.md`](specialists/api-tester/findings.md) | 7 | 0 | 0 | 0 |
 | security-tester (`BUG-SEC-NNN`) | [`specialists/security-tester/findings.md`](specialists/security-tester/findings.md) | 11 | 0 | 0 | 0 |
-| ui-tester (`BUG-UI-NNN`) | _planned_ | — | — | — | — |
-| data-tester (`BUG-DATA-NNN`) | _planned_ | — | — | — | — |
-| exploratory-tester (`BUG-EXP-NNN`) | _planned_ | — | — | — | — |
+| ui-tester (`BUG-UI-NNN`) | [`specialists/ui-tester/findings.md`](specialists/ui-tester/findings.md) | 0 _(no runs yet)_ | — | — | — |
+| data-tester (`BUG-DATA-NNN`) | [`specialists/data-tester/findings.md`](specialists/data-tester/findings.md) | 0 _(no runs yet)_ | — | — | — |
+| exploratory-tester (`BUG-EXP-NNN`) | [`specialists/exploratory-tester/findings.md`](specialists/exploratory-tester/findings.md) | 0 _(no runs yet)_ | — | — | — |
 | **Total** | | **20** | **0** | **0** | **0** |
 
 > Note: BUG-API-001 and BUG-SEC-002 describe the same root-cause bug from
