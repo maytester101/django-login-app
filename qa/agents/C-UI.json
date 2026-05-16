@@ -3,7 +3,7 @@
   "role": "ui-tester",
   "description": "Persistent UI tester profile for django-login-app using a local Ollama model.",
   "provider": "ollama",
-  "model": "qwen2.5:32b",
+  "model": "gpt-oss:20b",
   "modelEndpoint": "http://127.0.0.1:11434",
   "temperature": 0.2,
   "targets": {

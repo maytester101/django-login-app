@@ -7,7 +7,7 @@ Agent **C-UI** is a persistent QA tester profile for `django-login-app`.
 - **Name:** C-UI
 - **Role:** UI tester
 - **Default provider:** Ollama
-- **Default local model:** `qwen2.5:32b`
+- **Default local model:** `gpt-oss:20b`
 - **Config:** `qa/agents/C-UI.json`
 
 ## Mission
