@@ -77,6 +77,10 @@ export default function LoginPage() {
         <Link className="btn-secondary" href="/register">
           Create account
         </Link>
+
+        <p className="findings-link">
+          <Link href="/findings">View QA findings →</Link>
+        </p>
       </main>
     </div>
   );
