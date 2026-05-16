@@ -141,3 +141,11 @@ Vercel sets `VERCEL`, `VERCEL_URL`, and related values automatically.
 ## License
 
 Use and modify as needed for testing and learning.
+
+## Demo URLs (2026-05-16)
+
+- **UI (Next.js):** https://django-login-web.vercel.app
+- **API (Django REST):** https://django-login-api.vercel.app
+- **QA findings page:** https://django-login-web.vercel.app/findings
+
+The shorter `django-login-app.vercel.app` URL is currently behind Vercel deployment protection (team-SSO 401 for anonymous visitors). Use the `-web` host for public/demo links.
