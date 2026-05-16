@@ -12,9 +12,29 @@ Shared bug log for findings reported by the persistent QA agents `C-API` and
 
 ## C-API Findings
 
+### Run Metadata
+
+- **Agent:** `C-API`
+- **Configured AI model:** Ollama `qwen2.5:14b`
+- **Testing target:** `https://django-login-api.vercel.app`
+- **Testing started:** 2026-05-16 7:26 PM UTC-4
+- **Testing ended:** 2026-05-16 7:29 PM UTC-4
+- **Result:** No reproducible C-API bugs found.
+
 No C-API findings logged yet.
 
 ## C-UI Findings
+
+### Run Metadata
+
+- **Agent:** `C-UI`
+- **Configured AI model:** Ollama `qwen2.5:32b`
+- **Available local model during run:** Ollama `qwen2.5:14b`
+- **Testing target:** `https://django-login-web.vercel.app`
+- **Testing started:** 2026-05-16 7:02 PM UTC-4
+- **Testing ended:** 2026-05-16 7:07 PM UTC-4
+- **Note:** Local Ollama triage with `qwen2.5:14b` stalled without output; the
+  findings below are browser-confirmed from the C-UI pass.
 
 ### Medium Invalid Login Has No Visible Error
 
