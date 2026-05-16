@@ -28,7 +28,7 @@ One **🔴 Critical** server-error contract drift: usernames containing a NUL by
 ### 🔴 BUG-API-001 — CSRF is not enforced on `POST /api/login/`, `/api/register/`, `/api/logout/`
 
 - **Severity:** Critical
-- **Status:** open
+- **Status:** ✅ **verified fixed** 2026-05-16 13:20 EDT (PR #15, commit `2f32a1f`). All 6 adversarial postures that returned 200 + sessionid this morning now return 403 against live prod. Happy-path login through the full CSRF flow still returns 200. Same root-cause fix also resolves the cross-referenced BUG-SEC-002.
 - **Endpoint:** `POST /api/login/` (also `/api/register/`, same root cause; `/api/logout/` is partially protected — see "Logout CSRF behavior" note below)
 - **Repro:** Six independent probes, every one returns 200 + fresh `sessionid`:
 
@@ -107,7 +107,7 @@ So **`/api/logout/` enforces CSRF correctly**, but `django-login-web.vercel.app`
 ### 🔴 BUG-API-002 — `GET /api/attempts/` exposes every user's login attempts
 
 - **Severity:** Critical
-- **Status:** open
+- **Status:** ✅ **verified fixed** 2026-05-16 13:20 EDT (PR #13, commit `ca58667`). Re-verified the original repro live: registered a fresh account, caused an anonymous failed-login attempt for a different username, then `GET /api/attempts/` as the new account — returned **1 row** (own auto-login event), **0 rows** belonging to other users. Same root-cause fix also resolves the cross-referenced BUG-002 (manager-direct) and BUG-SEC-005 (security-tester's elevated view).
 - **Endpoint:** `GET /api/attempts/`
 - **Repro:** Register two throwaway accounts X and Y in separate sessions. Cause a failed login for X from a third (anonymous) session. Log in as Y. `GET /api/attempts/`:
 
@@ -150,7 +150,7 @@ So **`/api/logout/` enforces CSRF correctly**, but `django-login-web.vercel.app`
 ### 🔴 BUG-API-003 — Username with NUL byte or length >150 returns HTML 500 instead of JSON 400
 
 - **Severity:** Critical (contract-breaking; the UI's `.json()` call throws a SyntaxError)
-- **Status:** open
+- **Status:** ✅ **verified fixed** 2026-05-16 13:20 EDT (PR #14, commit `fa08c58`). Both the 151-char and NUL-byte cases now return `400 application/json` with the documented `{"detail": "..."}` shape ("Username must be 150 characters or fewer." and "Username contains invalid characters."). The 150-char boundary still returns 201. Same root-cause fix also resolves the cross-referenced BUG-SEC-008 (NUL-byte handling).
 - **Endpoint:** `POST /api/register/`
 - **Repro:**
 
