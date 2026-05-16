@@ -14,7 +14,7 @@ These are different from `qa/specialists/`:
 | Agent | Role | Provider | Model | Files |
 |---|---|---|---|---|
 | `C-API` | API tester | Ollama | `qwen2.5:14b` | [`C-API.md`](C-API.md), [`C-API.json`](C-API.json) |
-| `C-UI` | UI tester | Ollama | `qwen2.5:14b` | [`C-UI.md`](C-UI.md), [`C-UI.json`](C-UI.json) |
+| `C-UI` | UI tester | Ollama | `qwen2.5:32b` | [`C-UI.md`](C-UI.md), [`C-UI.json`](C-UI.json) |
 
 ## Agent C-API
 
@@ -36,3 +36,7 @@ disabled states, basic accessibility, and console/network errors.
 Use `C-UI.md` when a human or AI needs instructions. Use `C-UI.json` when an
 automation needs stable config values such as model, provider, targets, and
 constraints.
+
+## Bug Report
+
+Use [`bug-report.md`](bug-report.md) to log bugs found by `C-API` and `C-UI`.
