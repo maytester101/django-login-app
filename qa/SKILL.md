@@ -146,15 +146,26 @@ Use the `sessions_spawn` tool. Default pattern:
 
 ### Synthesis duty
 
-When specialists report back:
-1. **Dedupe.** Multiple specialists may flag the same root cause from
-   different angles. Merge into one finding with all observations.
-2. **Re-prioritize.** Specialists rate within their domain; you rate across
-   the whole project. A "high" from ui-tester may be a "medium" overall.
-3. **Add context.** Specialists may not know the deployment topology or the
-   business priority. Add it.
-4. **Write the finding** in the format defined by `qa/README.md`. Assign
-   the next BUG-NNN id. Commit on a branch, open a PR.
+Findings live in **per-specialist files** (`qa/specialists/<name>/findings.md`),
+and each specialist owns its own ID prefix (e.g. `BUG-API-NNN`,
+`BUG-SEC-NNN`). The manager does **not** rewrite those files. Instead:
+
+1. **Verify.** Spot-check at least the high-severity findings against the
+   actual source / live environment. Local-model output is first-pass
+   triage, not final verdict. If a finding doesn't hold up, ask the
+   specialist to amend its own file or remove the entry.
+2. **Dedupe across files.** If two specialists flag the same root cause,
+   pick the earliest/most-fitting file as canonical and add a
+   `See BUG-XXX-NNN` cross-reference in the other.
+3. **Re-prioritize at the project level.** Specialists rate within their
+   domain; you rate across the whole project. If you disagree, leave a
+   short manager note under the finding (don't silently overwrite their
+   severity).
+4. **Update the index.** Refresh counts and links in the top-level
+   `qa/findings.md` so the rollup matches the per-specialist files.
+5. **Manager-direct findings** (things you caught yourself, outside any
+   specialist run) get a `BUG-NNN` id and a full entry in `qa/findings.md`.
+6. Commit on a branch, open a PR.
 
 ---
 
@@ -225,7 +236,8 @@ Rules:
 |---|---|
 | This manager skill | `qa/SKILL.md` |
 | Conventions (severity, IDs, formats) | `qa/README.md` |
-| Bug log | `qa/findings.md` |
+| Findings **index** + manager-direct bugs (`BUG-NNN`) | `qa/findings.md` |
+| Per-specialist findings (`BUG-<PREFIX>-NNN`) | `qa/specialists/<name>/findings.md` |
 | Specialist skills | `qa/specialists/<name>/SKILL.md` |
 | Specialist support files (templates, fixtures) | `qa/specialists/<name>/` |
 | Test plans | `qa/plans/<feature-or-release>.md` |

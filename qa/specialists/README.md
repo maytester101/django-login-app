@@ -28,11 +28,26 @@ in its "Recommended dispatch config" section.
 
 **⚠️ Output verification:** specialist findings are first-pass triage.
 Local models are smaller and weaker than frontier ones, so Q **must**
-re-verify every finding before promoting it to `qa/findings.md`. See
-each specialist's "Output verification" note.
+spot-check findings (especially high-severity ones) before relying on
+them. See each specialist's "Output verification" note.
 
 When a specialist exists, its row gets a ✅ and the `Status` column shows
 the file path.
+
+## Where findings go
+
+Each specialist owns its own findings file:
+
+- `qa/specialists/api-tester/findings.md`         (IDs: `BUG-API-NNN`)
+- `qa/specialists/security-tester/findings.md`    (IDs: `BUG-SEC-NNN`)
+- `qa/specialists/ui-tester/findings.md`          (IDs: `BUG-UI-NNN`)
+- `qa/specialists/data-tester/findings.md`        (IDs: `BUG-DATA-NNN`)
+- `qa/specialists/exploratory-tester/findings.md` (IDs: `BUG-EXP-NNN`)
+
+Specialists write **only** to their own file. The manager (Q) maintains
+the top-level `qa/findings.md` as an **index** plus a "manager-direct"
+section for things caught outside any specialist run (`BUG-NNN`).
+See `qa/README.md` for the full ID-prefix scheme.
 
 ## Conventions for specialist skills
 
@@ -44,10 +59,12 @@ Each `qa/specialists/<name>/SKILL.md` should:
    does API contract testing." If you need both, dispatch both.
 3. **List inputs** the specialist needs to do its job (file paths, URLs,
    credentials, throwaway account naming convention).
-4. **Define the output format** explicitly — markdown findings ready to
-   merge into `qa/findings.md`, with severity, repro, expected/actual, and
-   suggested fix. Q (the manager) does the synthesis; specialists deliver
-   raw findings in a known shape.
+4. **Define the output format** explicitly — the specialist writes its
+   full report to `qa/specialists/<name>/findings.md` (overwriting prior
+   content), using its own ID prefix (e.g. `BUG-API-NNN`). Findings must
+   include severity, repro, expected/actual, and suggested fix. The
+   specialist's final assistant message should be a short rollup (counts +
+   file path); the manager reads the file directly.
 5. **State constraints**: read-only by default, no prod writes without
    approval, never push to git, never modify code.
 6. **Be self-contained.** A subagent reading the SKILL.md cold should be

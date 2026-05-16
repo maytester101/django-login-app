@@ -166,17 +166,31 @@ not assume escalated permissions.
 
 ## Output format
 
-Return a single Markdown report. This is what Q reads to synthesize
-into `qa/findings.md`. Structure:
+**Write your full report to `qa/specialists/security-tester/findings.md`**
+(overwrite the file each run). Then return a SHORT rollup in your final
+assistant message (5–15 lines): finding counts by severity, the file
+path, and a one-line overall posture verdict, so the manager (Q) knows
+where to read.
+
+Do **not** write to `qa/findings.md` — that's the manager's index.
+
+Use bug IDs of the form `BUG-SEC-NNN` (e.g. `BUG-SEC-001`,
+`BUG-SEC-002`). Number sequentially per run; if you're amending an
+existing file, continue from the highest previous id.
+
+File structure:
 
 ```markdown
-# Security Tester Report
+# security-tester findings — django-login-app
 
 **Run:** <UTC timestamp>
+**Specialist:** security-tester
+**Model:** ollama/qwen2.5:14b
 **Environment:** <local | preview | production with URL>
 **Threats covered:** <subset of the list>
-**Throwaway accounts created:** <list with prefix qa-q-sec-…, or "none">
 **Probes that required authorization:** <list, or "none">
+
+---
 
 ## Summary
 
@@ -185,9 +199,10 @@ holds; rate limiting absent; CSRF enforced correctly").
 
 ## Findings
 
-### F1 — <one-line title>
+### 🔴/🟠/🟡/🟢 BUG-SEC-001 — <one-line title>
 
 - **Severity (specialist's view):** Critical / High / Medium / Low
+- **Status:** open
 - **Threat class:** <one of the 11 above>
 - **Affected endpoint(s) or file:** `<METHOD> <path>` and/or `<file>:<line>`
 - **Repro:**
@@ -200,7 +215,15 @@ holds; rate limiting absent; CSRF enforced correctly").
 - **Confidence:** Confirmed / Suspected / Theoretical
 - **CVSS-ish quick rating:** <one-liner: e.g., "low complexity, no auth needed, account-wide impact" — Q can sharpen this>
 
-### F2 — …
+### BUG-SEC-002 — …
+
+## Headers snapshot
+
+<table or fenced block of observed response headers, by endpoint>
+
+## Cookie snapshot
+
+<raw Set-Cookie strings observed for csrftoken and sessionid>
 
 ## Posture summary (one row per threat class)
 
@@ -210,9 +233,17 @@ holds; rate limiting absent; CSRF enforced correctly").
 | 2 | CSRF | … | … |
 | … | … | … | … |
 
+## Tested but clean
+
+- <bullets of what you checked that passed>
+
 ## What I did NOT test
 
 Be explicit. Q needs to know what's still uncovered.
+
+## Throwaway accounts created
+
+- <bullets of usernames you injected so they can be cleaned up>
 
 ## Notes for Q
 
@@ -221,7 +252,7 @@ investigations worth their own dispatch, dependencies that look stale).
 ```
 
 Severity in your report is **your domain view**. Q re-rates across the
-whole project before writing into `qa/findings.md`.
+whole project when updating the top-level findings index.
 
 ---
 
