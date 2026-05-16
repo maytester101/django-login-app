@@ -62,4 +62,4 @@ def logout_api(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def attempts_api(request):
-    return Response(services.serialize_attempts())
+    return Response(services.serialize_attempts(request.user))
