@@ -27,7 +27,7 @@ Read this whole file before doing anything.
 
 When Q dispatches this specialist, use:
 
-- **Model:** `ollama/gpt-oss:20b` (verified locally to handle strict structured-output format — qwen2.5:14b was tested first and emitted meta-commentary instead of following the format)
+- **Model:** `ollama/qwen2.5:14b` (per May's direction 2026-05-16). Warning: tool-using runs on local models against a 16 GB Mac mini have proven unreliable; manager may fall back to running probes inline if dispatches return empty findings.
 - **Thinking:** medium-high
 - **Context:** isolated
 
@@ -185,7 +185,7 @@ File structure:
 
 **Run:** <UTC timestamp>
 **Specialist:** security-tester
-**Model:** ollama/gpt-oss:20b
+**Model:** ollama/qwen2.5:14b
 **Environment:** <local | preview | production with URL>
 **Threats covered:** <subset of the list>
 **Probes that required authorization:** <list, or "none">

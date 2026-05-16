@@ -101,20 +101,21 @@ spawn an isolated subagent and pass the specialist's brief as the task.
 
 | Specialist | Lives at | Model | Trigger |
 |---|---|---|---|
-| `api-tester` ✅ | `qa/specialists/api-tester/SKILL.md` | `ollama/gpt-oss:20b` | API endpoint changes; need to validate request/response contracts |
-| `security-tester` ✅ | `qa/specialists/security-tester/SKILL.md` | `ollama/gpt-oss:20b` | Auth changes; pre-release; periodic prod audits |
-| `ui-tester` ✅ | `qa/specialists/ui-tester/SKILL.md` | `ollama/gpt-oss:20b` | `frontend/` changes; cross-origin cookie behavior; verifying API-fix flows in a real browser |
-| `data-tester` ✅ | `qa/specialists/data-tester/SKILL.md` | `ollama/gpt-oss:20b` | Model or migration changes; data integrity questions; SQLite-vs-Neon parity |
-| `exploratory-tester` ✅ | `qa/specialists/exploratory-tester/SKILL.md` | `ollama/gpt-oss:20b` | High-risk releases; bug-class follow-ups; "try to break it" mode |
+| `api-tester` ✅ | `qa/specialists/api-tester/SKILL.md` | `ollama/qwen2.5:14b` | API endpoint changes; need to validate request/response contracts |
+| `security-tester` ✅ | `qa/specialists/security-tester/SKILL.md` | `ollama/qwen2.5:14b` | Auth changes; pre-release; periodic prod audits |
+| `ui-tester` ✅ | `qa/specialists/ui-tester/SKILL.md` | `ollama/qwen2.5:14b` | `frontend/` changes; cross-origin cookie behavior; verifying API-fix flows in a real browser |
+| `data-tester` ✅ | `qa/specialists/data-tester/SKILL.md` | `ollama/qwen2.5:14b` | Model or migration changes; data integrity questions; SQLite-vs-Neon parity |
+| `exploratory-tester` ✅ | `qa/specialists/exploratory-tester/SKILL.md` | `ollama/qwen2.5:14b` | High-risk releases; bug-class follow-ups; "try to break it" mode |
 
-**Model policy:** all specialists default to **`ollama/gpt-oss:20b`** — a
-local model that's been verified to follow strict structured-output
-instructions (the smaller llama3.2 and qwen2.5:14b we tried earlier could
-not reliably produce the per-specialist findings format). Q (manager) is
-the only role on a hosted model (`opus`). Per-specialist model is
-documented in each specialist's "Recommended dispatch config" section —
-use that as the source of truth, and override at `sessions_spawn` time
-only when a specific run genuinely needs a different model.
+**Model policy:** all specialists default to **`ollama/qwen2.5:14b`** per
+May's direction on 2026-05-16. Empirically, **no locally-runnable model on
+this 16 GB Mac mini reliably drives a full tool-using QA workflow** —
+gpt-oss:20b passed a simple-format verification test but failed when asked
+to run actual probes against the live API. Specialist runs may therefore
+produce empty / malformed findings; if that keeps happening, **the manager
+(Q) should fall back to running probes inline** (no specialist dispatch)
+rather than retry against another local model. Q (manager) is the only
+role that defaults to a hosted model (`opus`).
 
 **⚠️ Verification duty:** because specialists run on smaller local models,
 Q must sanity-check every finding before promoting it into

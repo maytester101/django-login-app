@@ -26,7 +26,7 @@ Read this whole file before doing anything.
 
 When Q dispatches this specialist, use:
 
-- **Model:** `ollama/gpt-oss:20b` (local, verified to follow strict structured-output format — smaller locals like llama3.2:3b emit JSON-shaped garbage)
+- **Model:** `ollama/qwen2.5:14b` (per May's direction 2026-05-16). Warning: tool-using runs on local models against a 16 GB Mac mini have proven unreliable; manager may fall back to running probes inline if dispatches return empty findings.
 - **Thinking:** low
 - **Context:** isolated
 
@@ -183,7 +183,7 @@ File structure:
 
 **Run:** <UTC timestamp>
 **Specialist:** api-tester
-**Model:** ollama/gpt-oss:20b
+**Model:** ollama/qwen2.5:14b
 **Environment:** <local | preview | production with URL>
 **Scope:** <what you actually tested>
 
