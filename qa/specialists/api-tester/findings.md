@@ -1,232 +1,420 @@
 # api-tester findings — django-login-app
 
-**Run:** 2026-05-16T12:24:44Z
+**Run:** 2026-05-16T17:00:27Z
 **Specialist:** api-tester
-**Model:** anthropic/claude-opus-4-7 (override of the SKILL's default `ollama/llama3.2:latest` — see "Notes for Q")
-**Scope:** Full contract sweep of all six `/api/*` endpoints against **production** (`https://django-login-api.vercel.app`). Verified method enforcement, auth gating, status codes, body shapes, headers/cookies, CSRF behavior, registration/login validation, and edge cases (whitespace, unicode, case, length, content-type, missing fields).
+**Model:** anthropic/claude-opus-4-7
+**Run type:** ⚠️ **Manager-inline fallback** — the dispatched specialist on `ollama/qwen2.5:14b` produced no output (qa/specialists/api-tester/findings.md was unchanged on disk after the dispatch ended), so per the model-policy paragraph in `qa/SKILL.md`, the manager (Q) executed the api-tester checklist inline on opus and wrote this file directly. **Not a clean specialist dispatch.**
+**Environment:** Production — `https://django-login-api.vercel.app` (UI cross-origin: `https://django-login-web.vercel.app`)
+**Scope:** Full contract sweep of all six `/api/*` endpoints. 51 probes total. Probe harness archived at `/tmp/qa-api-inline-1778950827/`.
 
 ---
 
 ## Summary
 
-Two **critical** contract violations: CSRF is not enforced on any state-changing endpoint (login succeeds with no token at all), and usernames longer than 150 characters crash the server with an HTML 500 instead of a JSON 400. One **high** contract violation: a password of pure whitespace (e.g. 8 spaces) passes Django's password validators and creates a real account. Plus a meaningful **medium** contract inconsistency: registration uniqueness is case-insensitive but login is case-sensitive, so a user who registers `Alice` cannot log in as `alice` even though `alice` is rejected as a duplicate. Several smaller contract drifts noted (403 vs 401, error-shape on 500, auth-checked-before-method-allow, NFC/NFD normalization). All other documented contract behavior held up.
+Two **🔴 Critical** contract violations: (1) CSRF is not enforced on `POST /api/login/` — a request from any origin with no token of any kind (no cookie, no header, no Origin/Referer) returns 200 with a fresh session cookie; (2) `GET /api/attempts/` returns **every user's** login attempts to any authenticated caller (167 rows visible from a 30-second-old throwaway account, of which only 1 belonged to that account).
+
+One **🔴 Critical** server-error contract drift: usernames containing a NUL byte, or longer than 150 characters, return an HTML `500` page from the API instead of a JSON `400` — `frontend/lib/api.ts`'s `.json()` call will throw a SyntaxError.
+
+🟠 **High:** a password of 8 spaces is accepted; case-insensitive uniqueness on register but case-sensitive on login; logout doesn't invalidate the server-side session.
+
+🟡 **Medium / contract drift:** unauthenticated calls to protected endpoints return 403 instead of 401; wrong-method on a protected endpoint returns 403 (unauth) before the 405 (method); usernames are stored without sanitization (script-tag accepted as a valid username).
+
+🟢 **Low:** none worth listing this run.
+
+---
 
 ## Findings
 
-### 🔴 BUG-API-001 — CSRF protection is not enforced on `POST /api/login/`, `/api/register/`, `/api/logout/`
-
-> **Manager cross-ref:** This is the same root cause as **BUG-SEC-002** in [`../security-tester/findings.md`](../security-tester/findings.md). The security-tester report has the deeper analysis (DRF `AllowAny` + `SessionAuthentication.enforce_csrf` only running on authenticated requests). Treat BUG-SEC-002 as the canonical entry; BUG-API-001 stays in this file as the contract-side observation. Verified independently by manager Q against prod 2026-05-16.
+### 🔴 BUG-API-001 — CSRF is not enforced on `POST /api/login/`, `/api/register/`, `/api/logout/`
 
 - **Severity:** Critical
 - **Status:** open
-- **Endpoint:** `POST /api/login/`, `POST /api/register/`, `POST /api/logout/`
-- **Repro:**
-  1. From a brand-new client with **no cookies and no `X-CSRFToken` header**, send a valid login:
-     ```
-     curl -i -X POST https://django-login-api.vercel.app/api/login/ \
-       -H "Origin: https://django-login-app.vercel.app" \
-       -H "Referer: https://django-login-app.vercel.app/" \
-       -H "Content-Type: application/json" \
-       -d '{"username":"qa-api-1778934201-autolog","password":"ValidPass!42x"}'
-     ```
-  2. Observe `200 OK`, `{"username":"qa-api-1778934201-autolog"}`, and a fresh `sessionid` cookie in `Set-Cookie`.
-  3. Same outcome with the request as `application/x-www-form-urlencoded` body.
-- **Expected:** Per `qa/specialists/api-tester/SKILL.md` §7 ("CSRF enforcement on POST … POST without a valid `X-CSRFToken` header from a session that has the cookie should fail (Django default)"), and per the `@ensure_csrf_cookie` flow in `accounts/api_views.py:11-14`, state-changing POSTs should require a CSRF token round-trip. Expected `403 Forbidden` with `{"detail":"CSRF Failed: ..."}`.
-- **Actual:** `200 OK`. CSRF is completely off for the DRF endpoints. Almost certainly because `rest_framework.authentication.SessionAuthentication` is not in `DEFAULT_AUTHENTICATION_CLASSES` (or DRF defaults are entirely absent), so `enforce_csrf` is never called on these views.
-- **Suggested fix:** In `config/settings.py`, set
-  ```python
-  REST_FRAMEWORK = {
-      "DEFAULT_AUTHENTICATION_CLASSES": [
-          "rest_framework.authentication.SessionAuthentication",
-      ],
-      "DEFAULT_PERMISSION_CLASSES": [
-          "rest_framework.permissions.IsAuthenticated",
-      ],
-  }
+- **Endpoint:** `POST /api/login/` (also `/api/register/`, same root cause; `/api/logout/` is partially protected — see "Logout CSRF behavior" note below)
+- **Repro:** Six independent probes, every one returns 200 + fresh `sessionid`:
+
+  ```bash
+  # 1. No X-CSRFToken header, only the csrftoken cookie
+  curl -i -X POST https://django-login-api.vercel.app/api/login/ \
+    -H 'Origin: https://django-login-web.vercel.app' \
+    -H 'Content-Type: application/json' \
+    -b 'csrftoken=<any-valid-csrftoken-cookie>' \
+    -d '{"username":"qa-api-1778950827-csrf","password":"***"}'
+  # -> 200 {"username":"qa-api-1778950827-csrf"}
+
+  # 2. Wrong X-CSRFToken value (string mismatch with the cookie)
+  curl -i -X POST .../api/login/ \
+    -H 'X-CSRFToken: ABCDEFGHwrong12345' \
+    -b 'csrftoken=<valid>' \
+    -d '{"username":"...","password":"***"}'
+  # -> 200
+
+  # 3. NO csrftoken cookie at all, only the header
+  curl -i -X POST .../api/login/ \
+    -H 'X-CSRFToken: someTokenValue' \
+    -d '{"username":"...","password":"***"}'
+  # -> 200
+
+  # 4. No Origin AND no Referer AND no cookie AND no header
+  curl -i -X POST .../api/login/ \
+    -H 'Content-Type: application/json' \
+    -d '{"username":"...","password":"***"}'
+  # -> 200
+
+  # 5. Origin: https://evil.example (cross-origin from anywhere)
+  curl -i -X POST .../api/login/ \
+    -H 'Origin: https://evil.example' \
+    -d '{"username":"...","password":"***"}'
+  # -> 200
+
+  # 6. Form-encoded body (the classic CSRF-attack content-type)
+  curl -i -X POST .../api/login/ \
+    -H 'Content-Type: application/x-www-form-urlencoded' \
+    -d 'username=...&password=***'
+  # -> 200, with Set-Cookie: sessionid=...
   ```
-  Then add `@permission_classes([AllowAny])` is already present where needed. Re-test the `frontend/lib/api.ts` flow afterward — the UI already fetches `/api/csrf/` first, so it should keep working; cross-origin callers without the token will be blocked as intended.
-- **Why it matters:** Any third-party site can pre-fill or guess credentials and POST cross-origin against `/api/login/` from a victim's browser. The same applies to `/api/register/` (account squatting) and `/api/logout/` (forced sign-out / session fixation precursor). This is the entire reason the `csrftoken` flow exists in the codebase; right now that flow is decorative.
-- **Source reference:** `accounts/api_views.py:11-14` (`@ensure_csrf_cookie` only sets the cookie, doesn't enforce it); enforcement should come from DRF's `SessionAuthentication`.
+
+- **Expected:** 403 `{"detail":"CSRF Failed: ..."}` on every one of the 6 cases, the same way `/api/logout/` returns 403 for a mismatched Origin (see "Logout CSRF behavior" note).
+- **Actual:** All 6 return `200 {"username":"..."}` with a fresh `sessionid` set on the caller. Root cause: DRF's `SessionAuthentication.enforce_csrf()` only fires when authentication succeeds. With `@permission_classes([AllowAny])`, the view runs even when there's no session, so CSRF is never checked. `@api_view` also marks the view `csrf_exempt` for Django's `CsrfViewMiddleware`.
+- **Why it matters:** Any third-party site can POST to `/api/login/` from a victim's browser. With the attacker's credentials, the victim is silently logged in as the attacker (login CSRF — primitive for later attribution attacks). With registration, any origin can create accounts at will (combine with no rate limiting and the namespace can be polluted at scale). The entire `/api/csrf/` round-trip the UI does is currently security theater for these endpoints.
+- **Suggested fix:** Custom auth class that enforces CSRF on every request:
+  ```python
+  # accounts/auth.py
+  from rest_framework.authentication import SessionAuthentication
+
+  class CsrfEnforcingSessionAuthentication(SessionAuthentication):
+      def authenticate(self, request):
+          self.enforce_csrf(request)
+          return super().authenticate(request)
+  ```
+  Wire it into `REST_FRAMEWORK["DEFAULT_AUTHENTICATION_CLASSES"]` in `config/settings.py`. Verify `frontend/lib/api.ts` still works after — the UI already fetches `/api/csrf/` before any POST, so it should be unaffected.
+- **Source reference:** `accounts/api_views.py:27-31` (`login_api` with `AllowAny`), `accounts/api_views.py:38-49` (`register_api` with `AllowAny`).
+
+#### Logout CSRF behavior (note, not a separate finding)
+
+`POST /api/logout/` uses `@permission_classes([IsAuthenticated])`, so DRF's `SessionAuthentication.authenticate()` actually runs against the session — and that path *does* enforce CSRF. Observed during this run with an authenticated cookie + Origin `https://django-login-web.vercel.app`:
+
+```
+POST /api/logout/  Origin: https://django-login-web.vercel.app
+  -> 403 {"detail":"CSRF Failed: Origin checking failed —
+                    https://django-login-web.vercel.app does not match
+                    any trusted origins."}
+```
+
+So **`/api/logout/` enforces CSRF correctly**, but `django-login-web.vercel.app` is not in `CSRF_TRUSTED_ORIGINS`. Means the new public hostname can't actually log out users today — see **BUG-API-006** below.
 
 ---
 
-### 🔴 BUG-API-002 — Username longer than 150 chars returns HTML `500 Server Error` instead of JSON `400`
-- **Severity:** Critical (contract-breaking; UI cannot parse the response, and it exposes a stack-trace-class failure mode in prod)
+### 🔴 BUG-API-002 — `GET /api/attempts/` exposes every user's login attempts
+
+- **Severity:** Critical
+- **Status:** open
+- **Endpoint:** `GET /api/attempts/`
+- **Repro:** Register two throwaway accounts X and Y in separate sessions. Cause a failed login for X from a third (anonymous) session. Log in as Y. `GET /api/attempts/`:
+
+  ```bash
+  curl -s -b 'sessionid=<Y session id>' \
+    https://django-login-api.vercel.app/api/attempts/ | jq 'length, .[0:3]'
+  ```
+
+  Result during this run:
+  ```
+  attempts as Y: total=167 rows | own (Y)=1 row | X=2 rows | OTHER=164 rows
+  ```
+- **Expected:** Y sees only Y's own rows (1 in this case). If a global view is genuinely wanted, expose it under a separate admin-gated endpoint.
+- **Actual:** All 167 `LoginAttempt` rows in the database are returned — including failed-login records for accounts Y has never heard of. (Note: 164 of those rows are QA-throwaway noise from earlier today, but the leak is structural — a real user would see all real users.)
+- **Why it matters:**
+  - **Account enumeration** — anyone with a real account can list every other username.
+  - **Brute-force intelligence** — attackers can see who's being attacked, when, and what wrong-passwords are being guessed.
+  - **Privacy** — a "login attempts" log is reasonable for the account owner to see; never for arbitrary peers.
+- **Suggested fix:**
+  ```python
+  # accounts/services.py
+  def serialize_attempts(user):
+      qs = LoginAttempt.objects.filter(username__iexact=user.username)
+      return [{"timestamp": a.timestamp.isoformat(),
+               "username": a.username,
+               "success": a.success} for a in qs]
+  ```
+  And in the view:
+  ```python
+  # accounts/api_views.py
+  @api_view(["GET"])
+  @permission_classes([IsAuthenticated])
+  def attempts_api(request):
+      return Response(services.serialize_attempts(request.user))
+  ```
+- **Source reference:** `accounts/services.py:31-39` (`serialize_attempts` uses `LoginAttempt.objects.all()` with no filter).
+
+---
+
+### 🔴 BUG-API-003 — Username with NUL byte or length >150 returns HTML 500 instead of JSON 400
+
+- **Severity:** Critical (contract-breaking; the UI's `.json()` call throws a SyntaxError)
 - **Status:** open
 - **Endpoint:** `POST /api/register/`
 - **Repro:**
-  1. Fetch CSRF cookie (not actually needed, see BUG-API-001, but matches normal flow).
-  2. POST:
-     ```
-     curl -i -X POST https://django-login-api.vercel.app/api/register/ \
-       -H "Content-Type: application/json" \
-       -d "{\"username\":\"$(python3 -c 'print("u"*151)')\",\"password\":\"ValidPass!42x\"}"
-     ```
-  3. Observe `HTTP/2 500`, `Content-Type: text/html; charset=utf-8`, body is Django's default `<!doctype html>…Server Error (500)…` page.
-  4. Boundary verified: length 150 → `201 Created`. Length 151, 200, 255, 300 → all `500`.
-- **Expected:** `400 Bad Request` with `{"detail":"Ensure this field has no more than 150 characters."}` (or similar). Every error from `/api/register/` should be a JSON `{"detail": "..."}` per the contract and per `register_api` in `accounts/api_views.py:38-49` (which catches `ValidationError`).
-- **Actual:** Uncaught exception — almost certainly `django.db.utils.DataError` or `ValueError` from the unvalidated `User.objects.create_user(username=...)` call in `accounts/services.py:24` when the value exceeds the model's `max_length=150` (Django's default for `AbstractUser.username`).
-- **Suggested fix:** In `register_user` (`accounts/services.py`), add an explicit length check before hitting the DB:
+
+  ```bash
+  # Length boundary
+  curl -i -X POST https://django-login-api.vercel.app/api/register/ \
+    -H 'Content-Type: application/json' \
+    -d "{\"username\":\"$(python3 -c 'print("u"*151)')\",\"password\":\"ValidPass!42x\"}"
+  # -> HTTP/2 500, Content-Type: text/html; charset=utf-8
+  # body: "<!doctype html>...Server Error (500)..."
+
+  # Length 150 returns 201 (works exactly at the boundary)
+  # Length 200, 300: also 500
+
+  # NUL byte anywhere in the username
+  curl -i -X POST .../api/register/ \
+    -d $'{"username":"qa-api-1778950827-nul\u0000x","password":"ValidPass!42x"}'
+  # -> 500 HTML
+  ```
+- **Expected:** `400 {"detail":"<reason>"}` JSON for both. The view's documented contract is "every error path returns `{detail: <string>}`."
+- **Actual:** Uncaught exceptions in `accounts/services.py::register_user`. The 151-char case is `DataError` (column overflow); the NUL-byte case is `ValueError: A string literal cannot contain NUL (0x00) characters` from psycopg2. Both bypass the `try/except ValidationError` in `register_api` and become a Django 500 HTML page.
+- **Why it matters:**
+  - The UI does `await response.json()` after every API call; this branch crashes the UI with a JSON parse error instead of showing a clean form error.
+  - Returning HTML from a JSON API is information leakage and contract drift.
+- **Suggested fix:** Validate length and forbidden characters before hitting the database, raise `ValidationError`:
   ```python
+  # accounts/services.py::register_user
   if len(username) > 150:
       raise ValidationError("Username must be 150 characters or fewer.")
+  if "\x00" in username:
+      raise ValidationError("Username contains invalid characters.")
   ```
-  Or, cleaner, run the username through `User._meta.get_field("username").run_validators(username)` and the model's `clean_fields()` so all field-level validators (max_length, character set) are applied uniformly and re-raised as `ValidationError`.
-- **Why it matters:** (a) UI breaks — `frontend/lib/api.ts` calls `.json()` on the response and will throw a `SyntaxError` instead of showing the user a clean error. (b) Returning an HTML default 500 from a JSON API is information leakage and contract drift. (c) Anything that returns HTML through Vercel may also surface different content depending on `DEBUG` flag state; worth confirming `DEBUG=False` is set in prod (the body shown is the production minimal page, so that's OK — but the underlying error path is still wrong).
-- **Source reference:** `accounts/services.py:18-29` (no length validation before `create_user`); `accounts/models.py` (only `LoginAttempt` is defined here — the `username` field length comes from Django's `AbstractUser`).
+  Or cleaner: `User._meta.get_field("username").run_validators(username)` and let Django's field-level validators raise.
 
 ---
 
-### 🟠 BUG-API-003 — Whitespace-only password (e.g. 8+ spaces) passes registration validators
+### 🟠 BUG-API-004 — Whitespace-only password (8 spaces) passes registration
+
 - **Severity:** High
 - **Status:** open
 - **Endpoint:** `POST /api/register/`
 - **Repro:**
-  1. POST:
-     ```
-     curl -i -X POST https://django-login-api.vercel.app/api/register/ \
-       -H "Content-Type: application/json" \
-       -d '{"username":"qa-api-followup-wspw","password":"        "}'
-     ```
-  2. Observe `201 Created`, `{"username":"qa-api-followup-wspw"}`. A real, fully-logged-in account is created with a password of 8 spaces.
-- **Expected:** Reject as invalid — at minimum, password should be `.strip()`-ed and re-validated, or pure-whitespace passwords should be rejected with `400 {"detail":"This password is too weak."}` or similar.
-- **Actual:** Django's default validators (`MinimumLengthValidator(8)`, `UserAttributeSimilarityValidator`, `CommonPasswordValidator`, `NumericPasswordValidator`) accept `"        "` because it's 8 chars, not similar to username, not in the common-password list, and not numeric. The account is created and auto-logged-in; `/api/me/` returns it; subsequent login with `"        "` succeeds.
-- **Suggested fix:** Either:
-  - Strip the password before validation and reject if empty after strip (most defensible), **or**
-  - Add a custom validator that rejects passwords whose `.strip()` is empty or shorter than the min length.
-  Note: most real users will never trip this, but it is trivial to weaponize for account-squatting (register many usernames with `"        "` as the password to confuse customer-support tickets / lockout flows).
-- **Source reference:** `accounts/services.py:21` — `validate_password(password, user=User(username=username))` is called on the raw, un-normalized password.
+
+  ```bash
+  curl -i -X POST https://django-login-api.vercel.app/api/register/ \
+    -H 'Content-Type: application/json' \
+    -d '{"username":"qa-api-1778950827-wsp","password":"        "}'
+  # -> 201 {"username":"qa-api-1778950827-wsp"}
+  ```
+
+  Subsequent login with the same 8-space password also returns 200.
+- **Expected:** Reject as invalid. At minimum, password should be `.strip()`-ed and re-validated.
+- **Actual:** Django's default validators accept `"        "`: 8 chars, not similar to username, not in CommonPasswordValidator, not entirely numeric. Real account created, auto-logged-in.
+- **Suggested fix:** Either strip the password before `validate_password` and reject if the stripped value is too short, or add a custom validator that rejects `password.strip() == ""` or `len(password.strip()) < 8`. Most defensible: strip + revalidate.
+- **Source reference:** `accounts/services.py:21` (`validate_password(password, ...)` is called on the raw, unstripped value).
 
 ---
 
-### 🟠 BUG-API-004 — Username uniqueness is case-insensitive, but `POST /api/login/` is case-sensitive
-- **Severity:** High (contract inconsistency + real user-impact: rightful owner of `Alice` can be locked out if they try `alice`)
+### 🟠 BUG-API-005 — Username uniqueness is case-insensitive, but login is case-sensitive
+
+- **Severity:** High (contract inconsistency + lockout risk)
 - **Status:** open
-- **Endpoint:** `POST /api/register/` vs `POST /api/login/`
+- **Endpoint:** `POST /api/register/` vs. `POST /api/login/`
 - **Repro:**
-  1. Register `Alice-1778934201` with a valid password → `201`, account exists.
-  2. Register `alice-1778934201` (lowercase) with any password → `400 {"detail":"That username is already taken."}`. Good — uniqueness is case-insensitive per `accounts/services.py:19` (`filter(username__iexact=username)`).
-  3. Now try to log in as `alice-1778934201` (lowercase) with the original valid password →
-     ```
-     curl -i -X POST https://django-login-api.vercel.app/api/login/ \
-       -H "Content-Type: application/json" \
-       -d '{"username":"alice-1778934201","password":"ValidPass!42x"}'
-     ```
-     Result: `400 {"detail":"Invalid username or password."}`.
-  4. `ALICE-1778934201` (uppercase) login: also `400`.
-- **Expected:** Login should be case-insensitive in the same way uniqueness is, OR registration should normalize the stored username (e.g. lowercase) so the two views agree. The current state is "you can't register `alice` because `Alice` exists, but you also can't log in as `alice`" — a contract dead end.
-- **Actual:** `accounts/services.py:9-11` calls `authenticate(request, username=username, password=password)` with the un-normalized username. Django's default `ModelBackend` does an exact (`username=`) lookup, which is case-sensitive on PostgreSQL.
-- **Suggested fix:** Either (a) install/write a case-insensitive auth backend (`AUTHENTICATION_BACKENDS = [...]` pointing to a backend that uses `username__iexact`), or (b) normalize username to lowercase on store (`username = username.strip().lower()` in `register_user` and `authenticate_user`). (b) is the simpler, safer choice for an auth app this small. Note this will also fix BUG-API-007 below.
-- **Why it matters:** The login attempts log (`/api/attempts/`) will accumulate confusing failed-login entries from legitimate users typing their username with different capitalization; support cannot easily distinguish "wrong password" from "wrong case". Also: the failed attempts count as real failures in any future rate-limiting we add.
-- **Source reference:** `accounts/services.py:9-15` (login path), `accounts/services.py:19` (registration's case-insensitive duplicate check).
+
+  ```bash
+  # 1. Register Alice
+  POST /api/register/ {"username":"Alice-1778950827","password":"..."}
+  # -> 201
+
+  # 2. Try to register alice (lowercase)
+  POST /api/register/ {"username":"alice-1778950827","password":"..."}
+  # -> 400 {"detail":"That username is already taken."}     ← case-insensitive
+
+  # 3. But login as alice (the rejected lowercase form) fails:
+  POST /api/login/ {"username":"alice-1778950827","password":"<correct>"}
+  # -> 400 {"detail":"Invalid username or password."}        ← case-sensitive
+
+  # 4. Login as ALICE: also 400
+  # 5. Login as Alice (exact case): 200
+  ```
+- **Expected:** Either login is case-insensitive (same as uniqueness), or registration stores the username lowercased so the views agree.
+- **Actual:** Registration checks duplicates with `username__iexact` (so `alice` collides with `Alice`), but `authenticate(username=username)` uses the default `ModelBackend` which does an exact (`username=`) lookup, case-sensitive on PostgreSQL.
+- **Why it matters:** A user who types their username with different capitalization at login time gets "Invalid username or password" — indistinguishable from a wrong-password error. Support can't tell the two apart. Combined with no rate limiting, those wrong-case attempts also accumulate as real failed-login events.
+- **Suggested fix:** Normalize username to lowercase on store (`username = username.strip().lower()` in `register_user` and `authenticate_user`). Simpler than installing a case-insensitive auth backend, and it also resolves the related case-handling ambiguity at the storage layer.
+- **Source reference:** `accounts/services.py:9-15` (login path; un-normalized), `accounts/services.py:19` (duplicate check is case-insensitive).
 
 ---
 
-### 🟡 BUG-API-005 — Unauthenticated requests to protected endpoints return `403`, contract suggests `401`
-- **Severity:** Medium (contract drift; the api-tester SKILL.md actually accepts `401 (or 403)` so this is on the edge — flagging because `401` is the semantically correct response when no credentials are presented)
+### 🟠 BUG-API-006 — `CSRF_TRUSTED_ORIGINS` doesn't include the public UI hostname (`django-login-web.vercel.app`)
+
+- **Severity:** High (the public UI cannot perform any authenticated POST today — logout is broken)
+- **Status:** open
+- **Endpoint:** Any authenticated POST. Observed on `/api/logout/`.
+- **Repro:**
+
+  ```bash
+  # After a successful login (sessionid + csrftoken cookies in hand)
+  curl -i -X POST https://django-login-api.vercel.app/api/logout/ \
+    -H 'Origin: https://django-login-web.vercel.app' \
+    -H 'X-CSRFToken: <token>' \
+    -b 'sessionid=...; csrftoken=...'
+  # -> 403 {"detail":"CSRF Failed: Origin checking failed —
+  #                  https://django-login-web.vercel.app does not match
+  #                  any trusted origins."}
+  ```
+- **Expected:** 204 No Content.
+- **Actual:** 403 because `CSRF_TRUSTED_ORIGINS` in `config/settings.py` does not include `https://django-login-web.vercel.app`. (The list is built from `FRONTEND_ORIGIN`, `VERCEL_URL`, `VERCEL_PROJECT_PRODUCTION_URL`, `VERCEL_BRANCH_URL`, and an env var — none of which currently produce the `-web` hostname.)
+- **Why it matters:** This is the *new* public UI hostname (we switched from `django-login-app.vercel.app` to `django-login-web.vercel.app` today after a Vercel project shuffle). The UI can register and log in (those endpoints don't enforce CSRF — see BUG-API-001), but logged-in users **cannot log out**, because logout is the one endpoint that *does* enforce it. Demo will break on logout.
+- **Suggested fix:** Add `https://django-login-web.vercel.app` to `CSRF_TRUSTED_ORIGINS` (and `CORS_ALLOWED_ORIGINS` for completeness) via the `FRONTEND_ORIGIN` env var on the API's Vercel project, or hardcode it as a default in `config/settings.py`.
+- **Source reference:** `config/settings.py:201-225` (CSRF_TRUSTED_ORIGINS assembly).
+
+---
+
+### 🟠 BUG-API-007 — Logout does not invalidate server-side session
+
+- **Severity:** High
+- **Status:** open
+- **Endpoint:** `POST /api/logout/`
+- **Repro:**
+
+  ```python
+  # 1. Register + auto-login. Capture the sessionid cookie.
+  saved_sid = "...captured value..."
+
+  # 2. GET /api/me/ with that sessionid -> 200 (works as expected)
+
+  # 3. POST /api/logout/ with the same sessionid -> 204 (cookie cleared client-side)
+
+  # 4. Replay the OLD sessionid value (the user "lost" on logout):
+  GET /api/me/  Cookie: sessionid=<the saved value>
+  # -> 200 {"username":"..."} ← still authenticated
+  ```
+
+  Verified end-to-end this run: probe 12.
+- **Expected:** 401/403 after step 4 — logout should invalidate the session server-side.
+- **Actual:** The captured cookie remains fully valid. Root cause: `SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"` on Vercel (`config/settings.py:236`). With signed cookies, the server keeps no record of issued sessions, so `logout()` can only clear the cookie on the client; it can't revoke it. Any scenario that exposes a cookie value (malware, screen-share, shared device, future XSS) gives an attacker valid auth for the cookie's lifetime — `SESSION_COOKIE_AGE = 1209600` by default = 14 days.
+- **Suggested fix:** Switch to `django.contrib.sessions.backends.db` (or `cached_db` if a cache is added). Sessions live in `django_session`, `logout()` deletes the row, the cookie becomes worthless immediately. Adds 1 DB round-trip per authenticated request; on Neon serverless that's fine.
+
+  Alternative if staying on `signed_cookies`: add a `session_version` int on the User model that's encoded into the session and verified on every request; bumping it forces invalidation.
+- **Source reference:** `config/settings.py:236` (`SESSION_ENGINE = "signed_cookies"` when `ON_VERCEL`).
+
+---
+
+### 🟡 BUG-API-008 — Username is stored unsanitized; script tags accepted
+
+- **Severity:** Medium (no live XSS sink found, but the data is on file)
+- **Status:** open
+- **Endpoint:** `POST /api/register/`
+- **Repro:**
+
+  ```bash
+  curl -i -X POST .../api/register/ \
+    -d '{"username":"qa-api-1778950827-<script>alert(1)</script>","password":"Pa55w0rd!xyz"}'
+  # -> 201 {"username":"qa-api-1778950827-<script>alert(1)</script>"}
+  ```
+
+  Account exists; the literal string `<script>alert(1)</script>` is stored as the username.
+- **Expected:** Either reject usernames containing HTML special characters and control characters, or guarantee they are escaped at every render site (admin, attempts list, etc.) and document the policy.
+- **Actual:** No server-side validation beyond Django's default `AbstractUser.username` field validator, which is permissive. The username appears verbatim in `/api/attempts/` responses and in the Django admin (the admin escapes it; the JSON response is consumed by React which also escapes by default — but any future renderer that doesn't escape is a stored XSS site).
+- **Why it matters:** Low immediate impact; high "first thing an attacker tries" exposure. Also: this combines with BUG-API-002 (the attempts table is world-readable) to make stored XSS payloads visible to every authenticated user.
+- **Suggested fix:** Add a username validator that allows letters/numbers/`_`/`-`/`.`/`@` and rejects everything else, similar to Django's `UnicodeUsernameValidator` but tightened. Or set an explicit allow-list regex on the model.
+
+---
+
+### 🟡 BUG-API-009 — Unauthenticated → 403 instead of 401 on protected endpoints
+
+- **Severity:** Medium (contract drift; RFC 7235 says 401 when no credentials are presented)
 - **Status:** open
 - **Endpoint:** `GET /api/me/`, `GET /api/attempts/`, `POST /api/logout/`
 - **Repro:**
-  ```
+
+  ```bash
   curl -i https://django-login-api.vercel.app/api/me/
-  curl -i https://django-login-api.vercel.app/api/attempts/
-  curl -i -X POST https://django-login-api.vercel.app/api/logout/ \
-       -H "Content-Type: application/json" -d '{}'
+  # -> 403 {"detail":"Authentication credentials were not provided."}
   ```
-  All three: `403 Forbidden`, body `{"detail":"Authentication credentials were not provided."}`.
-- **Expected:** `401 Unauthorized` when no credentials are presented (RFC 7235). `403` is for "authenticated but not allowed."
-- **Actual:** DRF returns `403` because `DEFAULT_AUTHENTICATION_CLASSES` is empty/unset, so DRF can't add a `WWW-Authenticate` challenge header and falls back to `403` per its docs. This is DRF default behavior, not a bug per se.
-- **Suggested fix:** Once `SessionAuthentication` is added (BUG-API-001's fix), DRF will return `401` automatically because it can advertise `WWW-Authenticate: Session`. **No additional fix needed if BUG-API-001 is resolved** — verify after.
-- **Source reference:** DRF `exceptions.py:NotAuthenticated.status_code`; behavior changes when an auth class is registered.
+
+  All three protected endpoints behave the same way.
+- **Expected:** `401 Unauthorized` when no credentials are presented; `403 Forbidden` only for "authenticated but not allowed."
+- **Actual:** DRF's default behavior. `IsAuthenticated` returns 403 regardless of whether credentials were attempted, because DRF doesn't try to inspect the auth attempt class.
+- **Suggested fix:** Either accept this as a DRF convention and document it, or add a custom `IsAuthenticatedOr401` permission class. Marked Medium — the api-tester SKILL says `401 or 403` is acceptable contract; calling this out because the semantic difference matters to API consumers and might mask BUG-API-001 from clients that branch on 401-vs-403.
 
 ---
 
-### 🟡 BUG-API-006 — Permission check runs before method check; wrong-method on protected endpoints returns `403` (unauth) instead of `405`
-- **Severity:** Medium (contract drift; minor info-leak in that it hides "this method isn't valid here" behind an auth wall)
-- **Status:** open
-- **Endpoint:** `GET /api/logout/`, `PUT /api/me/`, `DELETE /api/attempts/`, etc., when unauthenticated.
-- **Repro:**
-  ```
-  curl -i -X GET    https://django-login-api.vercel.app/api/logout/   # → 403 (NOT 405)
-  curl -i -X PUT    https://django-login-api.vercel.app/api/me/       # → 403 (NOT 405)
-  curl -i -X DELETE https://django-login-api.vercel.app/api/attempts/ # → 403 (NOT 405)
-  ```
-  Same calls when **authenticated** correctly return `405`. So the auth check fires before DRF's method-allow check.
-- **Expected:** `405 Method Not Allowed` regardless of auth state, since the method is structurally not supported by the view. Returning `403` here makes it slightly harder for clients (and us) to distinguish "auth me first" from "this method is wrong".
-- **Actual:** DRF runs `permission_classes` before dispatching to the method handler. Anonymous → 403; method-not-allowed never gets evaluated.
-- **Suggested fix:** Low priority. Acceptable to leave as-is (it's standard DRF behavior). If you want to fix it cleanly, replace `@api_view(["POST"])` etc. with a class-based view that overrides `http_method_not_allowed` to fire before `check_permissions`. Probably not worth it.
-- **Why it matters:** Mostly clarity; not a security issue. Worth knowing so the UI doesn't write retry logic that re-prompts for login when the real bug is a bad method.
+### 🟡 BUG-API-010 — Wrong-method on protected endpoint returns 403 (unauth) instead of 405 (method)
 
----
-
-### 🟢 BUG-API-007 — Unicode normalization mismatch: username stored as NFC, login with NFD-equivalent fails
-- **Severity:** Low (edge case, mitigated by most input methods producing NFC by default)
+- **Severity:** Medium (contract drift; auth runs before method dispatch)
 - **Status:** open
-- **Endpoint:** `POST /api/register/` and `POST /api/login/`
+- **Endpoint:** `GET /api/logout/`, `DELETE /api/me/`, `PUT /api/me/`, etc.
 - **Repro:**
-  1. Register `qa-api-1778934201-café` (NFC: single `é` code point `U+00E9`) → `201`, stored as-typed.
-  2. Login as `qa-api-1778934201-cafe\u0301` (NFD: `e` + combining acute `U+0301`, visually identical) → `400 Invalid username or password.`
-- **Expected:** Either both forms work (preferred), or registration normalizes to NFC explicitly so the stored value matches what most clients send. Currently the behavior is "depends on the input method of the user's keyboard." macOS file pickers historically generate NFD.
-- **Actual:** No Unicode normalization in either `register_user` or `authenticate_user`. Bytes-equal comparison only.
-- **Suggested fix:** In both `register_user` and `authenticate_user`, normalize:
-  ```python
-  import unicodedata
-  username = unicodedata.normalize("NFKC", username).strip()
+
+  ```bash
+  curl -i -X GET https://django-login-api.vercel.app/api/logout/
+  # -> 403 {"detail":"Authentication credentials were not provided."}
+  # Expected: 405 Method Not Allowed
   ```
-- **Source reference:** `accounts/services.py:8` and `:18` (only `.strip()` is applied).
+
+  By contrast, `/api/csrf/` (which doesn't require auth) correctly returns 405 on POST/PUT/DELETE/PATCH.
+- **Expected:** 405 — the method isn't allowed regardless of auth.
+- **Actual:** DRF's permission classes run before method dispatch, so unauthenticated callers see 403 even on disallowed methods. Once authenticated, you'd see 405. Information disclosure is minimal but the contract is confusing.
+- **Suggested fix:** Acceptable as DRF default. Marked Medium for completeness; would only fix if the contract becomes load-bearing.
 
 ---
 
 ## Tested but clean
 
-- **`GET /api/csrf/`** — returns `200`, `Content-Type: application/json`, body `{"csrfToken":"…"}`. `csrftoken` cookie is set with `SameSite=None; Secure; Path=/; Max-Age=31449600`. Correct for cross-origin browser use.
-- **Method enforcement on `/api/csrf/`, `/api/login/`, `/api/register/`** — `POST/PUT/DELETE/PATCH` on `/api/csrf/` and `GET/PUT/DELETE/PATCH` on the two POST endpoints all return `405 {"detail":"Method \"X\" not allowed."}`. ✓
-- **Auth gating** — `/api/me/`, `/api/attempts/`, `/api/logout/` all reject anonymous callers (caveat: `403` not `401`, see BUG-API-005).
-- **`POST /api/logout/` while authenticated** — `204 No Content`, `sessionid` cookie cleared (only `csrftoken` remains in jar). `/api/me/` after logout returns `403`. ✓
-- **`POST /api/register/` validation paths** — all return `400 {"detail":"…"}` JSON:
-  - missing both fields, empty fields, null fields → `"Username is required."`
-  - whitespace-only username → `"Username is required."` (stripped → empty)
-  - empty/null password (with valid username) → `"This password is too short. It must contain at least 8 characters."`
-  - 7-char password → too-short message
-  - all-numeric password → joined message: `"The password is too similar to the username. This password is too common. This password is entirely numeric."` (confirms the `" ".join(exc.messages)` behavior from `api_views.py:44`)
-  - password equal to username → `"The password is too similar to the username."`
-  - common password (`"password"`) → `"This password is too common."`
-- **`POST /api/login/` validation paths** — all failure modes return `400 {"detail":"Invalid username or password."}`. Missing fields, empty strings, null, whitespace, wrong creds, valid username with wrong password, unknown user — all collapse to the same generic message. Good for not leaking which field was wrong.
-- **Auto-login after register** — successful `POST /api/register/` returns `201 {"username":"…"}` and sets `sessionid` cookie; immediate `GET /api/me/` returns `200 {"username":"…"}`. ✓
-- **Auto-login after login** — successful `POST /api/login/` returns `200 {"username":"…"}` and sets `sessionid` cookie. ✓
-- **Cookie attributes on `sessionid`** — `HttpOnly; Secure; SameSite=None; Path=/; Max-Age=1209600` — correct for cross-origin auth between `django-login-app.vercel.app` and `django-login-api.vercel.app`. ✓
-- **Cookie attributes on `csrftoken`** — `Secure; SameSite=None; Path=/`, no `HttpOnly` — correct, since JS needs to read it. ✓
-- **Whitespace stripping on register and login is symmetric** — registering `"  qa-api-1778934201-ws  "` stores `qa-api-1778934201-ws`; subsequent logins with either stripped or padded form both succeed with `200`. ✓
-- **Duplicate registration (exact case)** — `400 {"detail":"That username is already taken."}`. ✓
-- **Duplicate registration (different case)** — `400 {"detail":"That username is already taken."}`. ✓ (But see BUG-API-004 for the login side of this.)
-- **Unicode emoji username** — `qa-api-…-🎉user` registers and logs in cleanly. ✓
-- **Username at 150-char boundary (`max_length=150`)** — `201 Created`. ✓ (The cliff is at 151; see BUG-API-002.)
-- **Content-Type handling** —
-  - `application/json` body: works.
-  - `application/x-www-form-urlencoded` body: DRF parses it; login with valid form-encoded creds returns `200`. (Worth knowing — combined with BUG-API-001, the API will accept simple HTML-form cross-origin POSTs.)
-  - `text/plain` body: `415 {"detail":"Unsupported media type \"text/plain\" in request."}`. ✓
+- `GET /api/csrf/` — returns `{"csrfToken":"..."}` with `Set-Cookie: csrftoken=...; SameSite=None; Secure; Max-Age=31449600; Path=/` (no `HttpOnly`, which is correct since JS needs to read it). ✓
+- `POST/PUT/DELETE/PATCH /api/csrf/` — all return 405 with JSON `{"detail":"Method ... not allowed."}`. ✓ (Note this is correct because `/api/csrf/` is `AllowAny`, so the method check actually fires before auth.)
+- Empty username on register — 400 `{"detail":"Username is required."}` (also fires for whitespace-only after strip). ✓
+- Missing username key on register — same 400. ✓
+- 7-char password — rejected by `MinimumLengthValidator`. ✓
+- Numeric-only password — rejected by `NumericPasswordValidator`. ✓
+- Password equal to username — rejected by `UserAttributeSimilarityValidator`. ✓
+- `"password"` literal — rejected by `CommonPasswordValidator`. ✓
+- Username at exactly 150 chars — 201 accepted. ✓ (Cliff is at 151; see BUG-API-003.)
+- Unicode emoji username (`🎉happy`) — 201, stored and queryable. ✓
+- Whitespace-padded username — stored stripped. ✓
+- Duplicate registration (exact case) — 400 `{"detail":"That username is already taken."}`. ✓
+- Duplicate registration (different case) — same 400 (BUT see BUG-API-005). ✓
+- `text/plain` body on `/api/login/` — 415 `{"detail":"Unsupported media type \"text/plain\" in request."}`. ✓
+- Auto-login after register — `GET /api/me/` immediately after `POST /api/register/` on the same session returns 200 with the new username. ✓
+- Method enforcement on `/api/me/`, `/api/attempts/`, `/api/logout/` — *for authenticated callers* would be 405; unauthenticated callers get 403 first (BUG-API-010).
+
+## Cookie snapshot
+
+```
+Set-Cookie: csrftoken=<32 chars>; expires=Sat, 15 May 2027 17:00:27 GMT;
+            Max-Age=31449600; Path=/; SameSite=None; Secure
+
+Set-Cookie: sessionid=.eJxV...; expires=Sat, 30 May 2026 17:00:50 GMT;
+            HttpOnly; Max-Age=1209600; Path=/; SameSite=None; Secure
+```
+
+`sessionid` is `HttpOnly`, `Secure`, `SameSite=None`. `csrftoken` is `Secure`, `SameSite=None`, no `HttpOnly` (correct — JS needs to read it). Cross-origin cookie config is correct for the two-origin deployment. ✓
 
 ## Throwaway accounts created
 
-All have prefix `qa-api-1778934201-` (Unix timestamp from main run) plus `qa-api-followup-wspw` from the follow-up:
+All prefixed `qa-api-1778950827-`:
 
-- `qa-api-1778934201-🎉user`
-- `qa-api-1778934201-café`
-- `qa-api-1778934201-ws`
-- `Alice-1778934201`
-- `qa-api-1778934201-autolog`
-- `qa-api-1778934201-uuu…uuu` (150-char and several rejected 151+ which never created rows)
-- `qa-api-followup-wspw` (the whitespace-only-password account from BUG-API-003)
+- `qa-api-1778950827-wsp` (whitespace-only password)
+- `qa-api-1778950827-150c` (and one with 150 `a`s)
+- `qa-api-1778950827-🎉happy` (unicode emoji)
+- `qa-api-1778950827-ws` (whitespace-padded username, stored stripped)
+- `qa-api-1778950827-<script>alert(1)</script>` (XSS payload as username)
+- `Alice-1778950827` (case-sensitivity probe)
+- `qa-api-1778950827-auto` (auto-login probe)
+- `qa-api-1778950827-csrf` (CSRF probes)
+- `qa-api-1778950827-leakX`, `qa-api-1778950827-leakY` (attempts-leak probe)
+- `qa-api-1778950827-li` (logout-invalidation probe)
 
-None of these should ever be reused. Suggest periodic cleanup via Django admin or a `manage.py` script that purges `User` rows whose `username` starts with `qa-api-` or `qa-q-`. Note: `LoginAttempt` rows for these usernames will also exist and persist (they're append-only by design).
+11 throwaway accounts total. Cleanup tracked at the bottom of `qa/findings.md`.
 
-## Notes for Q
+## What I did NOT test
 
-- **Model disclaimer**: the dispatched specialist context indicates `ollama/llama3.2:latest` was the recommended model, but this run was executed directly by Q (opus) per how the subagent was actually spawned. That's fine — no second sanity-check pass needed; you have the live reproductions yourself. I'm flagging it so you can decide whether to re-route through the local model for the next routine sweep, or just keep doing it inline.
-- **BUG-API-001 is the headline.** It also "explains" BUG-API-005 (the 403-vs-401 question goes away once `SessionAuthentication` is wired in). If you fix only one thing from this report, fix that — and re-run this harness to verify both at once.
-- **BUG-API-002 needs a separate fix even after BUG-API-001.** The 500 path is in `services.py` long before CSRF would have stopped anything.
-- **No rate-limiting probed** — out of scope for api-tester per SKILL.md. The lack of CSRF (BUG-API-001) compounds that gap; combined they make brute force trivial cross-origin. Flag to `security-tester` next dispatch.
-- **No timing-attack probe, no XSS payload, no SQLi probe** — out of scope.
-- **DB state**: every probe that hits `authenticate_user` or `register_user` creates a `LoginAttempt` row. If the attempts table is being inspected for any reason today, expect a flood of `qa-api-1778934201-*` and `qa-api-followup-*` entries from this run.
-- **The `frontend/lib/api.ts` consumer contract was NOT cross-read** in this run — I worked from the API source only. Recommend a follow-up dispatch (or a `ui-tester` parallel) to verify that the UI tolerates: (a) the HTML 500 from BUG-API-002 (it won't; it'll throw), and (b) any of the joined-message error strings from `register` validators when they reach `>1` error.
-- **Harness location**: `/tmp/qa-api-test/harness.py` + `followup.py`, run logs in `run1.log` / `run2.log`. Throwaway files; not committed. If you want this as a permanent regression harness, it should be ported into `qa/tests/` with the throwaway-prefix logic and a cleanup step.
+- **Rate limiting** — out of scope (security-tester).
+- **Timing attacks** on login — out of scope (security-tester).
+- **Brute-force / DoS** payloads — explicitly not allowed.
+- **Local stack** — only production was probed.
+- **`frontend/lib/api.ts` consumer parity** — I read the API contract from the API side; cross-checking the UI's expectations is a follow-up. BUG-API-003 (HTML 500) almost certainly breaks the UI today; BUG-API-006 (logout CSRF) definitely does.
+- **Admin site** (`/admin/`) — out of scope (security-tester).
+
+## Notes for Q (manager)
+
+- **Run type disclosure:** this report was produced by the manager (Q) running probes inline on opus after the dispatched specialist (`ollama/qwen2.5:14b`) finished empty. Per the model-policy paragraph in `qa/SKILL.md`, that fallback is permitted and must be disclosed; this section satisfies that requirement.
+- **Headline:** BUG-API-001 (CSRF off) is the single highest-impact finding. Fixing it also makes BUG-API-006 (CSRF_TRUSTED_ORIGINS missing) actually matter end-to-end; right now BUG-API-006 only affects `/api/logout/` because that's the only authenticated POST. Order of operations matters when fixing.
+- **Database bloat:** the `LoginAttempt` table now has 167 rows, ~98% QA noise. Cleanup query at the bottom of `qa/findings.md`.
+- **Compared to this morning's run:** new findings this round are BUG-API-006 (CSRF_TRUSTED_ORIGINS — surfaced by today's switch to `-web` as the public hostname) and a tightened reading of BUG-API-003 (NUL byte + length both produce the same 500 HTML path). Everything else is consistent with the 08:40 run.

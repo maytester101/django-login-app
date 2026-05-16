@@ -5,47 +5,68 @@ findings (things Q catches outside any specialist run).
 
 See [`README.md`](README.md) for the ID-prefix scheme and conventions.
 
-**Last updated:** 2026-05-16 (after api-tester run1 + security-tester run1)
+**Last updated:** 2026-05-16 (after api-tester run2 — manager-inline fallback on opus)
 
 ---
 
 ## Verdict (release readiness)
 
-🚫 **NO-GO for any new user growth.** The current production deployment has two
-🔴 Critical issues that combine into a credible attack chain: CSRF is silently
-off on `/api/login/` and `/api/register/` (BUG-SEC-002 / BUG-API-001), and
-logout does not invalidate the session cookie (BUG-SEC-001) because of the
-`signed_cookies` session engine on Vercel. Multiple 🟠 High issues amplify
-this (no rate limiting, register enumeration, `/api/attempts/` leaks the
-whole table, ~2 s CPU per registration with no password length cap).
+🚫 **NO-GO for any new user growth.** The current production deployment has
+three 🔴 Critical issues that combine into a credible attack chain: CSRF is
+silently off on `/api/login/` and `/api/register/` (BUG-API-001 / BUG-SEC-002),
+`/api/attempts/` exposes every user's login history to any authenticated
+caller (BUG-API-002 / BUG-002), and the new public UI hostname is missing
+from `CSRF_TRUSTED_ORIGINS` so logout is currently broken from the demo URL
+(BUG-API-006). Plus the previous critical findings carry over: logout
+doesn't invalidate the session cookie (BUG-SEC-001), and oversized /
+NUL-byte usernames return HTML 500 (BUG-API-003).
 
-Fix order: **BUG-SEC-002 → BUG-SEC-001 → BUG-002 → BUG-SEC-003 → BUG-API-002 → the rest.**
+Fix order (suggested):
+  1. **BUG-API-006** — add `django-login-web.vercel.app` to `CSRF_TRUSTED_ORIGINS`. One-liner, unblocks logout from the demo URL.
+  2. **BUG-API-001 / BUG-SEC-002** — enforce CSRF on every POST.
+  3. **BUG-API-002 / BUG-002** — scope `/api/attempts/` to the current user.
+  4. **BUG-API-003** — reject >150-char and NUL-byte usernames as 400 JSON.
+  5. **BUG-SEC-001** — switch to DB-backed sessions so logout actually revokes.
+  6. **BUG-SEC-003** — add `django-axes` for rate limiting.
+  7. Remaining 🟠 Highs and 🟡 Mediums per `qa/findings.md` and the specialist files.
 
 ## Index by source
 
 | Source | File | Open | Fixed | Verified | Won't-fix |
 |---|---|---:|---:|---:|---:|
 | Manager-direct (`BUG-NNN`) | [`findings.md`](findings.md) (this file) | 2 | 0 | 0 | 0 |
-| api-tester (`BUG-API-NNN`) | [`specialists/api-tester/findings.md`](specialists/api-tester/findings.md) | 7 | 0 | 0 | 0 |
+| api-tester (`BUG-API-NNN`) | [`specialists/api-tester/findings.md`](specialists/api-tester/findings.md) | 10 | 0 | 0 | 0 |
 | security-tester (`BUG-SEC-NNN`) | [`specialists/security-tester/findings.md`](specialists/security-tester/findings.md) | 11 | 0 | 0 | 0 |
 | ui-tester (`BUG-UI-NNN`) | [`specialists/ui-tester/findings.md`](specialists/ui-tester/findings.md) | 0 _(no runs yet)_ | — | — | — |
 | data-tester (`BUG-DATA-NNN`) | [`specialists/data-tester/findings.md`](specialists/data-tester/findings.md) | 0 _(no runs yet)_ | — | — | — |
 | exploratory-tester (`BUG-EXP-NNN`) | [`specialists/exploratory-tester/findings.md`](specialists/exploratory-tester/findings.md) | 0 _(no runs yet)_ | — | — | — |
-| **Total** | | **20** | **0** | **0** | **0** |
+| **Total** | | **23** | **0** | **0** | **0** |
 
-> Note: BUG-API-001 and BUG-SEC-002 describe the same root-cause bug from
-> two angles (contract drift vs. CSRF bypass). BUG-SEC-002 is canonical;
-> BUG-API-001 cross-references it. They're counted once each above because
-> each file owns one entry, but they should be fixed as a single change.
+> Notes on cross-references:
+>
+> - **BUG-API-001** and **BUG-SEC-002** are the same root-cause bug from two
+>   angles (contract drift vs. CSRF bypass). Counted once in each file.
+> - **BUG-API-002** (api-tester run2) and **BUG-002** (manager-direct, this
+>   file) are also the same root-cause bug. BUG-API-002 is now canonical (it
+>   has the live repro and is owned by the specialist); BUG-002 stays here as
+>   a manager-pointer with cross-reference.
+>
+> The 23 in the total is literal heading count across files; the number of
+> distinct **unique** bugs is 21.
 
 ## Index by severity (across all files)
 
+Literal heading counts; unique-bug count is lower because of cross-references
+(see notes on the source table above).
+
 | Severity | Open | Highlights |
 |---|---:|---|
-| 🔴 Critical | 4 | [BUG-SEC-002 / BUG-API-001](specialists/security-tester/findings.md) (CSRF off), [BUG-SEC-001](specialists/security-tester/findings.md) (logout doesn't invalidate session), [BUG-002](#-bug-002--apiattempts-leaks-all-users-login-attempts-to-any-authenticated-user) (attempts table leaks), [BUG-API-002](specialists/api-tester/findings.md) (500 HTML on long usernames) |
-| 🟠 High | 6 | No rate limiting, register-endpoint enumeration, password-length DoS, whitespace-only password accepted, case-insensitive register vs case-sensitive login, attempts table escalation |
-| 🟡 Medium | 6 | Username sanitization gaps, NUL-byte 500, public admin, long-lived CSRF cookie, 403-instead-of-401 contract drift, wrong-method 403-instead-of-405 |
-| 🟢 Low | 3 | API root bare 404 (BUG-001), DRF browsable-API HTML leak, NFC/NFD unicode normalization mismatch |
+| 🔴 Critical | 6 | **BUG-API-001 / BUG-SEC-002** (CSRF off on `/api/login/` + `/api/register/`), **BUG-API-002 / BUG-002** (`/api/attempts/` leaks every user's rows), **BUG-API-003** (HTML 500 on >150-char + NUL-byte usernames), **BUG-SEC-001** (logout doesn't invalidate session) |
+| 🟠 High | 8 | **API-004** (whitespace-only password accepted), **API-005** (case-insensitive register vs case-sensitive login), **API-006** (`CSRF_TRUSTED_ORIGINS` missing `django-login-web` — logout 403 from demo URL), **API-007** (logout doesn't invalidate session — cross-ref of **SEC-001**), **SEC-003** (no rate limiting), **SEC-004** (register-endpoint enumeration), **SEC-005** (attempts-table escalation — cross-ref of **BUG-002**), **SEC-006** (password-length CPU DoS) |
+| 🟡 Medium | 7 | **API-008** (username stored unsanitized; script-tag accepted), **API-009** (unauth → 403 not 401), **API-010** (wrong-method on protected endpoint → 403 not 405), **SEC-007** (username control-char gaps), **SEC-008** (NUL-byte 500 — cross-ref of API-003), **SEC-009** (public admin), **SEC-010** (long-lived CSRF cookie) |
+| 🟢 Low | 2 | **BUG-001** (API host root bare 404), **SEC-011** (DRF browsable-API HTML leak) |
+
+**Severity totals:** 6 🔴 + 8 🟠 + 7 🟡 + 2 🟢 = **23 logged findings, ~21 unique bugs** after collapsing the BUG-API-001/SEC-002, BUG-API-002/BUG-002, BUG-API-007/SEC-001, BUG-API-008/SEC-007, BUG-API-003/SEC-008, and BUG-API-002/SEC-005 cross-references.
 
 ---
 
@@ -101,11 +122,10 @@ A bare 404 page. No branding, no link, no hint that the user is on the wrong hos
 - **Where:** `GET https://django-login-api.vercel.app/api/attempts/`
   - Code: `accounts/api_views.py::attempts_api` → `accounts/services.py::serialize_attempts`
 
-> **Cross-ref:** the security-tester elevated this same bug to a High in
-> their own queue as [`BUG-SEC-005`](specialists/security-tester/findings.md)
-> because of how it compounds with their other findings (rate-limit gap,
-> register enumeration). BUG-002 here is canonical; BUG-SEC-005 stays as
-> an in-context cross-reference.
+> **Cross-references (updated 2026-05-16, api-tester run2):**
+> - **BUG-API-002** in [`specialists/api-tester/findings.md`](specialists/api-tester/findings.md) is now the canonical entry for this bug. It has the latest live repro (167 rows visible from a 30-second-old throwaway account, 164 owned by other users).
+> - **BUG-SEC-005** in [`specialists/security-tester/findings.md`](specialists/security-tester/findings.md) is the security-tester's view, elevated to High because of how the leak compounds with the rate-limit gap and register enumeration.
+> - This entry (**BUG-002**) is kept as a manager-direct pointer for historical continuity — it's the first place the bug was logged. Body below remains accurate; the live counts have grown.
 
 **Repro (verified against prod 2026-05-16):**
 
