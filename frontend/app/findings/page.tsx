@@ -45,6 +45,7 @@ export default function FindingsPage() {
             <Link href="/">Sign in</Link>
             <Link href="/register">Register</Link>
             <Link href="/attempts">Login attempts</Link>
+            <Link href="/agent-bugs">Agent bugs</Link>
           </nav>
         </div>
         <p className="findings-subtitle">

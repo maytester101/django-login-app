@@ -81,6 +81,9 @@ export default function LoginPage() {
         <p className="findings-link">
           <Link href="/findings">View QA findings →</Link>
         </p>
+        <p className="findings-link">
+          <Link href="/agent-bugs">View agent bug report →</Link>
+        </p>
       </main>
     </div>
   );
