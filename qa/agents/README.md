@@ -13,13 +13,26 @@ These are different from `qa/specialists/`:
 
 | Agent | Role | Provider | Model | Files |
 |---|---|---|---|---|
-| `C` | Tester | Ollama | `qwen2.5:14b` | [`C.md`](C.md), [`C.json`](C.json) |
+| `C-API` | API tester | Ollama | `qwen2.5:14b` | [`C-API.md`](C-API.md), [`C-API.json`](C-API.json) |
+| `C-UI` | UI tester | Ollama | `qwen2.5:14b` | [`C-UI.md`](C-UI.md), [`C-UI.json`](C-UI.json) |
 
-## Agent C
+## Agent C-API
 
-C is a tester for registration, login, logout, login-attempt visibility,
-duplicate usernames, UI error states, and cross-origin CSRF/session behavior.
+C-API is an API tester for `/api/csrf/`, `/api/register/`, `/api/login/`,
+`/api/logout/`, `/api/me/`, and `/api/attempts/`. C-API verifies endpoint
+contracts, auth/session boundaries, login-attempt visibility, duplicate
+username handling, JSON error shapes, and CORS/CSRF behavior.
 
-Use `C.md` when a human or AI needs instructions. Use `C.json` when an
+Use `C-API.md` when a human or AI needs instructions. Use `C-API.json` when an
+automation needs stable config values such as model, provider, targets, and
+constraints.
+
+## Agent C-UI
+
+C-UI is a UI tester for the Next.js pages `/`, `/register`, `/attempts`, and
+`/findings`. C-UI verifies browser flows, visible errors, redirects, loading and
+disabled states, basic accessibility, and console/network errors.
+
+Use `C-UI.md` when a human or AI needs instructions. Use `C-UI.json` when an
 automation needs stable config values such as model, provider, targets, and
 constraints.

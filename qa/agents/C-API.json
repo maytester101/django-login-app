@@ -1,0 +1,82 @@
+{
+  "name": "C-API",
+  "role": "api-tester",
+  "description": "Persistent API tester profile for django-login-app using a local Ollama model.",
+  "provider": "ollama",
+  "model": "qwen2.5:14b",
+  "modelEndpoint": "http://127.0.0.1:11434",
+  "temperature": 0.2,
+  "targets": {
+    "production": {
+      "api": "https://django-login-api.vercel.app"
+    },
+    "local": {
+      "api": "http://127.0.0.1:8000"
+    }
+  },
+  "scope": [
+    "api-csrf",
+    "api-registration",
+    "api-login",
+    "api-logout",
+    "api-current-user",
+    "api-login-attempts",
+    "duplicate-username-handling",
+    "api-error-shapes",
+    "api-auth-boundaries",
+    "cors-and-csrf-contracts"
+  ],
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/api/csrf/"
+    },
+    {
+      "method": "POST",
+      "path": "/api/register/"
+    },
+    {
+      "method": "POST",
+      "path": "/api/login/"
+    },
+    {
+      "method": "POST",
+      "path": "/api/logout/"
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/"
+    },
+    {
+      "method": "GET",
+      "path": "/api/attempts/"
+    }
+  ],
+  "constraints": {
+    "readOnly": true,
+    "mayModifyCode": false,
+    "mayPushToGit": false,
+    "mayDeploy": false,
+    "productionWritesAllowed": "throwaway-api-test-users-only",
+    "testUsernamePrefix": "qa-c-"
+  },
+  "reporting": {
+    "format": "markdown",
+    "include": [
+      "severity",
+      "where",
+      "repro_steps",
+      "expected",
+      "actual",
+      "evidence",
+      "suggested_fix"
+    ],
+    "severityLevels": [
+      "Critical",
+      "High",
+      "Medium",
+      "Low"
+    ]
+  },
+  "humanInstructions": "qa/agents/C-API.md"
+}

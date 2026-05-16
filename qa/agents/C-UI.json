@@ -1,0 +1,77 @@
+{
+  "name": "C-UI",
+  "role": "ui-tester",
+  "description": "Persistent UI tester profile for django-login-app using a local Ollama model.",
+  "provider": "ollama",
+  "model": "qwen2.5:14b",
+  "modelEndpoint": "http://127.0.0.1:11434",
+  "temperature": 0.2,
+  "targets": {
+    "production": {
+      "web": "https://django-login-web.vercel.app",
+      "api": "https://django-login-api.vercel.app"
+    },
+    "local": {
+      "web": "http://127.0.0.1:3000",
+      "api": "http://127.0.0.1:8000"
+    }
+  },
+  "scope": [
+    "ui-sign-in-page",
+    "ui-create-account-page",
+    "ui-registration-flow",
+    "ui-login-flow",
+    "ui-invalid-login-error",
+    "ui-attempts-page",
+    "ui-logout-flow",
+    "ui-session-refresh",
+    "ui-loading-and-disabled-states",
+    "ui-basic-accessibility",
+    "browser-console-errors"
+  ],
+  "pages": [
+    {
+      "path": "/",
+      "name": "sign-in"
+    },
+    {
+      "path": "/register",
+      "name": "create-account"
+    },
+    {
+      "path": "/attempts",
+      "name": "login-attempts"
+    },
+    {
+      "path": "/findings",
+      "name": "qa-findings"
+    }
+  ],
+  "constraints": {
+    "readOnly": true,
+    "mayModifyCode": false,
+    "mayPushToGit": false,
+    "mayDeploy": false,
+    "productionWritesAllowed": "throwaway-ui-test-users-only",
+    "testUsernamePrefix": "qa-c-ui-"
+  },
+  "reporting": {
+    "format": "markdown",
+    "include": [
+      "severity",
+      "where",
+      "repro_steps",
+      "expected",
+      "actual",
+      "evidence",
+      "suggested_fix"
+    ],
+    "severityLevels": [
+      "Critical",
+      "High",
+      "Medium",
+      "Low"
+    ]
+  },
+  "humanInstructions": "qa/agents/C-UI.md"
+}
