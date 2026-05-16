@@ -37,12 +37,23 @@ def register_user(request, username: str, password: str):
     return user
 
 
-def serialize_attempts():
+def serialize_attempts(user):
+    """Return this user's own login attempts.
+
+    Scoped by case-insensitive username match because:
+      - `LoginAttempt.username` is a CharField, not a FK to User
+        (failed logins for unknown usernames need to be recordable).
+      - Registration is case-insensitive on uniqueness
+        (`username__iexact`), so a single owner may have rows stored
+        under different casings if they ever logged in with mixed case.
+    """
     return [
         {
             "timestamp": attempt.timestamp.isoformat(),
             "username": attempt.username,
             "success": attempt.success,
         }
-        for attempt in LoginAttempt.objects.all()
+        for attempt in LoginAttempt.objects.filter(
+            username__iexact=user.username
+        )
     ]
