@@ -21,15 +21,23 @@ and how to dispatch them.
 | `data-tester` | ✅ [`data-tester/SKILL.md`](data-tester/SKILL.md) | `ollama/qwen2.5:14b` | Schema integrity, migration safety, login-attempt logging fidelity, SQLite vs Neon parity |
 | `exploratory-tester` | ✅ [`exploratory-tester/SKILL.md`](exploratory-tester/SKILL.md) | `ollama/qwen2.5:14b` | Free-form "try to break it" sessions for high-risk releases and bug-class follow-ups |
 
-**Model policy:** all specialists default to **`ollama/qwen2.5:14b`** per
-May's direction on 2026-05-16. **No opus fallback for specialist work** —
-if a dispatch returns empty or malformed findings, the manager (Q) must
-report the failure to the user and stop, NOT run the probes inline on
-opus or retry against another local model. Q (the manager) still uses
-opus for its own planning / review / synthesis work; specialist runs
-stay on the local model regardless of outcome. If the local model
-can't drive the workflow, the dispatch fails and the manager surfaces
-that as a failed run.
+**Model policy:** all specialists default to **`ollama/qwen2.5:14b`**
+per May's direction on 2026-05-16.
+
+**Opus fallback on empty dispatch (May's direction 12:55 EDT,
+2026-05-16).** If a specialist dispatch finishes and its findings.md
+is still unchanged on disk (or doesn't contain at least one
+`BUG-<PREFIX>-NNN` entry), the manager (Q) **runs the probes inline
+on opus** — reading the specialist's SKILL.md, executing the probes
+with the manager's tools, and writing the findings file directly.
+Do NOT re-dispatch another subagent on opus; do the work inline. Be
+explicit when reporting back that the run was a manager-inline
+fallback rather than a clean specialist dispatch.
+
+Trigger for fallback: the dispatch's run ends and the specialist's
+`qa/specialists/<name>/findings.md` either was not modified since
+before the dispatch started, or contains zero `BUG-<PREFIX>-NNN`
+entries after parsing. No retry against another local model.
 
 **⚠️ Output verification:** specialist findings are first-pass triage.
 Local models are smaller and weaker than frontier ones, so Q **must**
