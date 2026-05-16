@@ -17,9 +17,9 @@ and how to dispatch them.
 |---|---|---|---|
 | `api-tester` | ✅ [`api-tester/SKILL.md`](api-tester/SKILL.md) | `ollama/llama3.2:latest` | REST endpoint contracts: status codes, payloads, auth boundaries, error shapes |
 | `security-tester` | ✅ [`security-tester/SKILL.md`](security-tester/SKILL.md) | `ollama/qwen2.5:14b` | Auth bypass, CSRF, injection, XSS, rate limiting, timing attacks |
-| `ui-tester` | _planned (PR #5)_ | `ollama/llama3.2:latest` | End-to-end browser flows with Playwright; happy paths and error states |
-| `data-tester` | _planned_ | `ollama/llama3.1:8b` | Model integrity, migration safety, login-attempt logging fidelity |
-| `exploratory-tester` | _planned_ | `ollama/qwen2.5:14b` | Free-form "try to break it" sessions for high-risk releases |
+| `ui-tester` | ✅ [`ui-tester/SKILL.md`](ui-tester/SKILL.md) | `ollama/llama3.2:latest` | End-to-end browser flows with Playwright; happy paths, error states, cross-origin cookie behavior |
+| `data-tester` | ✅ [`data-tester/SKILL.md`](data-tester/SKILL.md) | `ollama/llama3.1:8b` | Schema integrity, migration safety, login-attempt logging fidelity, SQLite vs Neon parity |
+| `exploratory-tester` | ✅ [`exploratory-tester/SKILL.md`](exploratory-tester/SKILL.md) | `ollama/qwen2.5:14b` | Free-form "try to break it" sessions for high-risk releases and bug-class follow-ups |
 
 **Model policy:** all specialists run on local Ollama models (free, no
 hosted-API calls). Q (the manager) is the only role on a hosted model
@@ -36,13 +36,14 @@ the file path.
 
 ## Where findings go
 
-Each specialist owns its own findings file:
+Each specialist owns its own findings file. A placeholder findings.md
+exists in each specialist directory; the first dispatch overwrites it.
 
-- `qa/specialists/api-tester/findings.md`         (IDs: `BUG-API-NNN`)
-- `qa/specialists/security-tester/findings.md`    (IDs: `BUG-SEC-NNN`)
-- `qa/specialists/ui-tester/findings.md`          (IDs: `BUG-UI-NNN`)
-- `qa/specialists/data-tester/findings.md`        (IDs: `BUG-DATA-NNN`)
-- `qa/specialists/exploratory-tester/findings.md` (IDs: `BUG-EXP-NNN`)
+- `qa/specialists/api-tester/findings.md`         (IDs: `BUG-API-NNN`)  — 7 open
+- `qa/specialists/security-tester/findings.md`    (IDs: `BUG-SEC-NNN`)  — 11 open
+- `qa/specialists/ui-tester/findings.md`          (IDs: `BUG-UI-NNN`)   — placeholder, no runs yet
+- `qa/specialists/data-tester/findings.md`        (IDs: `BUG-DATA-NNN`) — placeholder, no runs yet
+- `qa/specialists/exploratory-tester/findings.md` (IDs: `BUG-EXP-NNN`)  — placeholder, no runs yet
 
 Specialists write **only** to their own file. The manager (Q) maintains
 the top-level `qa/findings.md` as an **index** plus a "manager-direct"

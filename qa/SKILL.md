@@ -101,11 +101,11 @@ spawn an isolated subagent and pass the specialist's brief as the task.
 
 | Specialist | Lives at | Model | Trigger |
 |---|---|---|---|
-| `api-tester` | `qa/specialists/api-tester/SKILL.md` | `ollama/llama3.2:latest` | API endpoint changes; need to validate request/response contracts |
-| `security-tester` | `qa/specialists/security-tester/SKILL.md` | `ollama/qwen2.5:14b` | Auth changes; pre-release; periodic prod audits |
-| `ui-tester` | `qa/specialists/ui-tester/SKILL.md` | `ollama/llama3.2:latest` | `frontend/` changes; user-flow validation |
-| `data-tester` | `qa/specialists/data-tester/SKILL.md` | `ollama/llama3.1:8b` | Model or migration changes; data integrity questions |
-| `exploratory-tester` | `qa/specialists/exploratory-tester/SKILL.md` | `ollama/qwen2.5:14b` | High-risk releases; "try to break it" mode |
+| `api-tester` ✅ | `qa/specialists/api-tester/SKILL.md` | `ollama/llama3.2:latest` | API endpoint changes; need to validate request/response contracts |
+| `security-tester` ✅ | `qa/specialists/security-tester/SKILL.md` | `ollama/qwen2.5:14b` | Auth changes; pre-release; periodic prod audits |
+| `ui-tester` ✅ | `qa/specialists/ui-tester/SKILL.md` | `ollama/llama3.2:latest` | `frontend/` changes; cross-origin cookie behavior; verifying API-fix flows in a real browser |
+| `data-tester` ✅ | `qa/specialists/data-tester/SKILL.md` | `ollama/llama3.1:8b` | Model or migration changes; data integrity questions; SQLite-vs-Neon parity |
+| `exploratory-tester` ✅ | `qa/specialists/exploratory-tester/SKILL.md` | `ollama/qwen2.5:14b` | High-risk releases; bug-class follow-ups; "try to break it" mode |
 
 **Model policy:** all specialists run on local Ollama models (free, no
 external API calls). Q (manager) is the only role on a hosted model
