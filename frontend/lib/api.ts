@@ -37,7 +37,15 @@ function getCookie(name: string): string | null {
 let csrfToken: string | null = null;
 let csrfReady: Promise<void> | null = null;
 
-async function ensureCsrf(): Promise<void> {
+function resetCsrf(): void {
+  csrfToken = null;
+  csrfReady = null;
+}
+
+async function ensureCsrf(force = false): Promise<void> {
+  if (force) {
+    resetCsrf();
+  }
   if (!csrfReady) {
     csrfReady = (async () => {
       const response = await fetch(apiUrl("/api/csrf/"), {
@@ -53,14 +61,19 @@ async function ensureCsrf(): Promise<void> {
   await csrfReady;
 }
 
-async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+async function apiRequest<T>(
+  path: string,
+  options: RequestInit = {},
+  retryingAfterCsrf = false,
+): Promise<T> {
   const method = (options.method || "GET").toUpperCase();
-  if (method !== "GET" && method !== "HEAD") {
+  const mutates = method !== "GET" && method !== "HEAD";
+  if (mutates) {
     await ensureCsrf();
   }
 
   const headers = new Headers(options.headers);
-  if (method !== "GET" && method !== "HEAD") {
+  if (mutates) {
     const token = csrfToken || getCookie("csrftoken");
     if (token) {
       headers.set("X-CSRFToken", token);
@@ -84,7 +97,22 @@ async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T
   const data = text ? (JSON.parse(text) as { detail?: string }) : null;
 
   if (!response.ok) {
+    if (
+      mutates &&
+      response.status === 403 &&
+      !retryingAfterCsrf &&
+      data?.detail?.toLowerCase().includes("csrf")
+    ) {
+      await ensureCsrf(true);
+      return apiRequest<T>(path, options, true);
+    }
     throw new ApiError(data?.detail || "Request failed.", response.status);
+  }
+
+  // Django rotates the CSRF token during login/register, so refresh before the
+  // next POST (notably logout) instead of reusing a stale token.
+  if (mutates) {
+    resetCsrf();
   }
 
   return data as T;
