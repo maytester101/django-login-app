@@ -205,7 +205,12 @@ CORS_ALLOW_CREDENTIALS = True
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.SessionAuthentication",
+        # CsrfEnforcingSessionAuthentication enforces CSRF on every request,
+        # not just authenticated ones. Stock DRF's SessionAuthentication only
+        # runs the CSRF check after authenticate() resolves a user, which
+        # combined with @permission_classes([AllowAny]) made /api/login/ and
+        # /api/register/ effectively csrf_exempt (BUG-API-001 / BUG-SEC-002).
+        "accounts.auth.CsrfEnforcingSessionAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
@@ -217,6 +222,14 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:8000",
     "http://localhost:8001",
     "http://127.0.0.1:8001",
+    # Production public UI hostnames. Without these, the new
+    # CsrfEnforcingSessionAuthentication will 403 every POST from the UI
+    # with "Origin checking failed - <host> does not match any trusted
+    # origins." (BUG-API-006). FRONTEND_ORIGIN env var still wins if set,
+    # but baking these in keeps the repo self-sufficient when env vars
+    # are missing or temporarily misconfigured.
+    "https://django-login-web.vercel.app",
+    "https://django-login-app.vercel.app",
 ]
 if VERCEL_URL:
     CSRF_TRUSTED_ORIGINS.append(f"https://{VERCEL_URL}")
