@@ -165,16 +165,29 @@ Do not invent scope.
 
 ## Output format
 
-Return a single Markdown report. This is what Q reads to synthesize
-into `qa/findings.md`. Structure:
+**Write your full report to `qa/specialists/api-tester/findings.md`**
+(overwrite the file each run). Then return a SHORT rollup in your
+final assistant message (5–15 lines): finding counts by severity and
+the file path, so the manager (Q) knows where to read.
+
+Do **not** write to `qa/findings.md` — that's the manager's index.
+
+Use bug IDs of the form `BUG-API-NNN` (e.g. `BUG-API-001`,
+`BUG-API-002`). Number sequentially per run; if you're amending an
+existing file, continue from the highest previous id.
+
+File structure:
 
 ```markdown
-# API Tester Report
+# api-tester findings — django-login-app
 
 **Run:** <UTC timestamp>
+**Specialist:** api-tester
+**Model:** ollama/llama3.2:latest
 **Environment:** <local | preview | production with URL>
 **Scope:** <what you actually tested>
-**Throwaway accounts created:** <list, or "none">
+
+---
 
 ## Summary
 
@@ -182,13 +195,14 @@ One paragraph: what passed, what failed, the headline finding.
 
 ## Findings
 
-### F1 — <one-line title>
+### 🔴/🟠/🟡/🟢 BUG-API-001 — <one-line title>
 
 - **Severity (specialist's view):** Critical / High / Medium / Low
+- **Status:** open
 - **Endpoint:** `<METHOD> <path>`
 - **Repro:**
   ```
-  <exact curl or equivalent>
+  <exact curl or python snippet>
   ```
 - **Expected:** <quote from contract or source code line>
 - **Actual:** <what happened, with status code and relevant body>
@@ -196,11 +210,19 @@ One paragraph: what passed, what failed, the headline finding.
 - **Suggested fix:** <optional, if obvious>
 - **Source reference:** `<file>:<line>` if applicable
 
-### F2 — …
+### BUG-API-002 — …
+
+## Tested but clean
+
+- <bullets of what you checked that passed>
 
 ## What I did NOT test
 
 Be explicit about coverage gaps. Future-Q needs to know what's still untested.
+
+## Throwaway accounts created
+
+- <bullets of usernames you injected so they can be cleaned up>
 
 ## Notes for Q
 
@@ -210,7 +232,7 @@ suspiciously slow on cold start, may want perf testing later").
 ```
 
 Severity in your report is **your domain view**. Q re-rates across the
-whole project before writing into `qa/findings.md`.
+whole project when updating the top-level findings index.
 
 ---
 
