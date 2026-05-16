@@ -10,6 +10,7 @@ Owned by **Q** (QA manager). Updated as we go.
 |------|---------|
 | `SKILL.md` | Q's manager playbook — how Q operates as QA lead for this repo. |
 | `findings.md` | **Index** of all findings: counts, links to per-specialist files, and manager-direct findings (things Q catches outside any specialist's lane). |
+| `agents/` | Persistent named agent profiles, including tester agent C with Markdown instructions and JSON config. |
 | `specialists/<name>/findings.md` | Per-specialist findings file. Each specialist writes only into their own file. |
 | `specialists/` | Specialist QA skills (api-tester, security-tester, ui-tester, etc.). Q dispatches these to ephemeral subagents. See [`specialists/README.md`](specialists/README.md). |
 | `plans/` | Test plans for specific features or releases. _(empty for now)_ |
