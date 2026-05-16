@@ -1,0 +1,14 @@
+---
+description: Keep agent test reports current after every C-API or C-UI run
+alwaysApply: true
+---
+
+# Agent Test Reporting
+
+When running `C-API` or `C-UI` tests:
+
+- Update `qa/agents/bug-report.md` in the matching agent section before finishing.
+- Record the model used, target URL, testing start time, testing end time, and run result.
+- Add new reproducible bugs with severity, status, repro steps, expected, actual, and evidence.
+- Mark previously logged bugs as verified fixed when the run proves they are fixed.
+- Push and deploy after updating the report when the user asks to run tests against production.
