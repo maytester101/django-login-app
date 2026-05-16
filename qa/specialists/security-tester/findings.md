@@ -64,7 +64,7 @@ The auth boundary itself holds (`/api/me/`, `/api/attempts/`, `/api/logout/` all
 
 
 - **Severity:** Critical
-- **Status:** open
+- **Status:** ✅ **verified fixed** 2026-05-16 13:20 EDT (PR #15, commit `2f32a1f`). Same root-cause fix as BUG-API-001 — see that entry for verification detail.
 - **Affected surface:** `accounts/api_views.py::login_api`, `accounts/api_views.py::register_api` (both `@permission_classes([AllowAny])`)
 - **Repro:** Six independent requests, each from a different "attacker" posture, all 200/201:
   1. **No `X-CSRFToken` header at all** (only the cookie):
@@ -172,7 +172,7 @@ The auth boundary itself holds (`/api/me/`, `/api/attempts/`, `/api/logout/` all
 ### 🟠 BUG-SEC-005 — `/api/attempts/` exposes the entire login-attempts table to every authenticated user
 
 - **Severity:** High
-- **Status:** open
+- **Status:** ✅ **verified fixed** 2026-05-16 13:20 EDT (PR #13, commit `ca58667`). Same root-cause fix as BUG-API-002 — see that entry for verification detail.
 - **Affected surface:** `accounts/services.py::serialize_attempts` (`LoginAttempt.objects.all()` — no `request.user` filter)
 - **Repro:**
   1. Register `qa-sec-<ts>-a` (a brand-new account).
@@ -252,7 +252,7 @@ The auth boundary itself holds (`/api/me/`, `/api/attempts/`, `/api/logout/` all
 ### 🟡 BUG-SEC-008 — NUL byte in username crashes register with HTML 500 (inconsistent error format + uncaught DataError)
 
 - **Severity:** Medium
-- **Status:** open
+- **Status:** ✅ **verified fixed** 2026-05-16 13:20 EDT (PR #14, commit `fa08c58`). Same root-cause fix as BUG-API-003 — see that entry for verification detail.
 - **Affected surface:** `accounts/api_views.py::register_api`, `accounts/services.py::register_user` (no exception handling around `User.objects.create_user`)
 - **Repro:**
   ```

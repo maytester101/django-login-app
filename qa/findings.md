@@ -5,42 +5,50 @@ findings (things Q catches outside any specialist run).
 
 See [`README.md`](README.md) for the ID-prefix scheme and conventions.
 
-**Last updated:** 2026-05-16 (after api-tester run2 — manager-inline fallback on opus)
+**Last updated:** 2026-05-16 (after 3 Critical fixes shipped & verified live — PRs #13, #14, #15)
 
 ---
 
 ## Verdict (release readiness)
 
-🚫 **NO-GO for any new user growth.** The current production deployment has
-three 🔴 Critical issues that combine into a credible attack chain: CSRF is
-silently off on `/api/login/` and `/api/register/` (BUG-API-001 / BUG-SEC-002),
-`/api/attempts/` exposes every user's login history to any authenticated
-caller (BUG-API-002 / BUG-002), and the new public UI hostname is missing
-from `CSRF_TRUSTED_ORIGINS` so logout is currently broken from the demo URL
-(BUG-API-006). Plus the previous critical findings carry over: logout
-doesn't invalidate the session cookie (BUG-SEC-001), and oversized /
-NUL-byte usernames return HTML 500 (BUG-API-003).
+🟡 **Improved but not yet GO.** Today's three Critical fixes are live on
+prod and verified, but one 🔴 Critical is still open (BUG-SEC-001 — logout
+doesn't invalidate the server-side session because of `signed_cookies`),
+and seven 🟠 Highs remain. Demo URL is unblocked: logout now works from
+`django-login-web.vercel.app` (BUG-API-006 was bundled into the CSRF fix).
 
-Fix order (suggested):
-  1. **BUG-API-006** — add `django-login-web.vercel.app` to `CSRF_TRUSTED_ORIGINS`. One-liner, unblocks logout from the demo URL.
-  2. **BUG-API-001 / BUG-SEC-002** — enforce CSRF on every POST.
-  3. **BUG-API-002 / BUG-002** — scope `/api/attempts/` to the current user.
-  4. **BUG-API-003** — reject >150-char and NUL-byte usernames as 400 JSON.
-  5. **BUG-SEC-001** — switch to DB-backed sessions so logout actually revokes.
-  6. **BUG-SEC-003** — add `django-axes` for rate limiting.
-  7. Remaining 🟠 Highs and 🟡 Mediums per `qa/findings.md` and the specialist files.
+**What shipped today (2026-05-16):**
+
+| PR | Commit | Resolved | Verified live |
+|----|--------|----------|---------------|
+| #13 | `ca58667` | BUG-API-002 / BUG-002 / BUG-SEC-005 (attempts scope) | ✅ 1 row to own user, 0 to others |
+| #14 | `fa08c58` | BUG-API-003 / BUG-SEC-008 (long & NUL-byte usernames) | ✅ both return JSON 400, not HTML 500 |
+| #15 | `2f32a1f` | BUG-API-001 / BUG-SEC-002 (CSRF enforcement) + BUG-API-006 (CSRF_TRUSTED_ORIGINS for `-web`) | ✅ 6/6 attacker postures now 403; happy path login still 200 |
+
+**Suggested remaining fix order:**
+  1. **BUG-SEC-001** — switch to DB-backed sessions so logout actually
+     revokes the server-side session (currently a 14-day stolen-cookie
+     window). Architectural; needs the migration to land.
+  2. **BUG-API-007** — cross-ref of BUG-SEC-001; will be resolved by the
+     same change.
+  3. **BUG-SEC-003** — add `django-axes` for rate limiting (or a similar
+     Postgres-backed solution).
+  4. **BUG-API-005** — normalize username case so login and register
+     agree (one-line change in `register_user` + `authenticate_user`).
+  5. **BUG-API-004** — reject whitespace-only passwords.
+  6. Remaining 🟡 Mediums per the specialist files.
 
 ## Index by source
 
-| Source | File | Open | Fixed | Verified | Won't-fix |
-|---|---|---:|---:|---:|---:|
-| Manager-direct (`BUG-NNN`) | [`findings.md`](findings.md) (this file) | 2 | 0 | 0 | 0 |
-| api-tester (`BUG-API-NNN`) | [`specialists/api-tester/findings.md`](specialists/api-tester/findings.md) | 10 | 0 | 0 | 0 |
-| security-tester (`BUG-SEC-NNN`) | [`specialists/security-tester/findings.md`](specialists/security-tester/findings.md) | 11 | 0 | 0 | 0 |
-| ui-tester (`BUG-UI-NNN`) | [`specialists/ui-tester/findings.md`](specialists/ui-tester/findings.md) | 0 _(no runs yet)_ | — | — | — |
-| data-tester (`BUG-DATA-NNN`) | [`specialists/data-tester/findings.md`](specialists/data-tester/findings.md) | 0 _(no runs yet)_ | — | — | — |
-| exploratory-tester (`BUG-EXP-NNN`) | [`specialists/exploratory-tester/findings.md`](specialists/exploratory-tester/findings.md) | 0 _(no runs yet)_ | — | — | — |
-| **Total** | | **23** | **0** | **0** | **0** |
+| Source | File | Open | Verified | Won't-fix |
+|---|---|---:|---:|---:|
+| Manager-direct (`BUG-NNN`) | [`findings.md`](findings.md) (this file) | 1 | 1 | 0 |
+| api-tester (`BUG-API-NNN`) | [`specialists/api-tester/findings.md`](specialists/api-tester/findings.md) | 7 | 3 | 0 |
+| security-tester (`BUG-SEC-NNN`) | [`specialists/security-tester/findings.md`](specialists/security-tester/findings.md) | 8 | 3 | 0 |
+| ui-tester (`BUG-UI-NNN`) | [`specialists/ui-tester/findings.md`](specialists/ui-tester/findings.md) | 0 _(no runs yet)_ | — | — |
+| data-tester (`BUG-DATA-NNN`) | [`specialists/data-tester/findings.md`](specialists/data-tester/findings.md) | 0 _(no runs yet)_ | — | — |
+| exploratory-tester (`BUG-EXP-NNN`) | [`specialists/exploratory-tester/findings.md`](specialists/exploratory-tester/findings.md) | 0 _(no runs yet)_ | — | — |
+| **Total** | | **16** | **7** | **0** |
 
 > Notes on cross-references:
 >
@@ -56,17 +64,18 @@ Fix order (suggested):
 
 ## Index by severity (across all files)
 
-Literal heading counts; unique-bug count is lower because of cross-references
-(see notes on the source table above).
+Literal heading counts of OPEN findings (verified-fixed not included).
+Unique-bug count is lower because of cross-references.
 
 | Severity | Open | Highlights |
 |---|---:|---|
-| 🔴 Critical | 6 | **BUG-API-001 / BUG-SEC-002** (CSRF off on `/api/login/` + `/api/register/`), **BUG-API-002 / BUG-002** (`/api/attempts/` leaks every user's rows), **BUG-API-003** (HTML 500 on >150-char + NUL-byte usernames), **BUG-SEC-001** (logout doesn't invalidate session) |
-| 🟠 High | 8 | **API-004** (whitespace-only password accepted), **API-005** (case-insensitive register vs case-sensitive login), **API-006** (`CSRF_TRUSTED_ORIGINS` missing `django-login-web` — logout 403 from demo URL), **API-007** (logout doesn't invalidate session — cross-ref of **SEC-001**), **SEC-003** (no rate limiting), **SEC-004** (register-endpoint enumeration), **SEC-005** (attempts-table escalation — cross-ref of **BUG-002**), **SEC-006** (password-length CPU DoS) |
-| 🟡 Medium | 7 | **API-008** (username stored unsanitized; script-tag accepted), **API-009** (unauth → 403 not 401), **API-010** (wrong-method on protected endpoint → 403 not 405), **SEC-007** (username control-char gaps), **SEC-008** (NUL-byte 500 — cross-ref of API-003), **SEC-009** (public admin), **SEC-010** (long-lived CSRF cookie) |
+| 🔴 Critical | 1 | **BUG-SEC-001** (logout doesn't invalidate session — `signed_cookies` engine has no server-side revocation) |
+| 🟠 High | 7 | **API-004** (whitespace-only password accepted), **API-005** (case-insensitive register vs case-sensitive login), **API-007** (logout invalidation — cross-ref of **SEC-001**), **SEC-003** (no rate limiting), **SEC-004** (register-endpoint enumeration), **SEC-006** (password-length CPU DoS) |
+| 🟡 Medium | 6 | **API-008** (username stored unsanitized; script-tag accepted), **API-009** (unauth → 403 not 401), **API-010** (wrong-method on protected endpoint → 403 not 405), **SEC-007** (username control-char gaps), **SEC-009** (public admin), **SEC-010** (long-lived CSRF cookie) |
 | 🟢 Low | 2 | **BUG-001** (API host root bare 404), **SEC-011** (DRF browsable-API HTML leak) |
 
-**Severity totals:** 6 🔴 + 8 🟠 + 7 🟡 + 2 🟢 = **23 logged findings, ~21 unique bugs** after collapsing the BUG-API-001/SEC-002, BUG-API-002/BUG-002, BUG-API-007/SEC-001, BUG-API-008/SEC-007, BUG-API-003/SEC-008, and BUG-API-002/SEC-005 cross-references.
+**Open totals:** 1 🔴 + 7 🟠 + 6 🟡 + 2 🟢 = **16 open findings.**
+**Verified totals:** 5 🔴 + 1 🟠 + 1 🟡 + 0 🟢 = **7 verified-fixed** (across 3 fix-PRs landed today).
 
 ---
 
@@ -117,7 +126,7 @@ A bare 404 page. No branding, no link, no hint that the user is on the wrong hos
 #### 🔴 BUG-002 — `/api/attempts/` leaks all users' login attempts to any authenticated user
 
 - **Severity:** Critical (privacy / info disclosure / aids account enumeration)
-- **Status:** open
+- **Status:** ✅ **verified fixed** 2026-05-16 13:20 EDT — see canonical entry **BUG-API-002** in [`specialists/api-tester/findings.md`](specialists/api-tester/findings.md). Fix shipped in PR #13 (commit `ca58667`); verification against live prod confirmed only own-rows are returned now.
 - **Found:** 2026-05-16 by Q (verified against live prod)
 - **Where:** `GET https://django-login-api.vercel.app/api/attempts/`
   - Code: `accounts/api_views.py::attempts_api` → `accounts/services.py::serialize_attempts`
