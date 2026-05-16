@@ -108,14 +108,14 @@ spawn an isolated subagent and pass the specialist's brief as the task.
 | `exploratory-tester` ✅ | `qa/specialists/exploratory-tester/SKILL.md` | `ollama/qwen2.5:14b` | High-risk releases; bug-class follow-ups; "try to break it" mode |
 
 **Model policy:** all specialists default to **`ollama/qwen2.5:14b`** per
-May's direction on 2026-05-16. Empirically, **no locally-runnable model on
-this 16 GB Mac mini reliably drives a full tool-using QA workflow** —
-gpt-oss:20b passed a simple-format verification test but failed when asked
-to run actual probes against the live API. Specialist runs may therefore
-produce empty / malformed findings; if that keeps happening, **the manager
-(Q) should fall back to running probes inline** (no specialist dispatch)
-rather than retry against another local model. Q (manager) is the only
-role that defaults to a hosted model (`opus`).
+May's direction on 2026-05-16. **No opus fallback** — if a specialist
+dispatch returns empty or malformed findings, the manager (Q) must
+report the failure to the user and stop, NOT run the probes inline on
+opus or retry against another local model. Q (manager) is still the
+only role that uses a hosted model for its own work (planning, review,
+synthesis); but specialist runs stay on the local model. If the local
+model can't do the work, the work doesn't get done by a specialist on
+this run — surface that as a failed dispatch and wait for direction.
 
 **⚠️ Verification duty:** because specialists run on smaller local models,
 Q must sanity-check every finding before promoting it into

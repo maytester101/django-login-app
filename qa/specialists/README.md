@@ -22,13 +22,14 @@ and how to dispatch them.
 | `exploratory-tester` | ✅ [`exploratory-tester/SKILL.md`](exploratory-tester/SKILL.md) | `ollama/qwen2.5:14b` | Free-form "try to break it" sessions for high-risk releases and bug-class follow-ups |
 
 **Model policy:** all specialists default to **`ollama/qwen2.5:14b`** per
-May's direction on 2026-05-16. **Tool-using specialist runs against any
-local model on this 16 GB Mac mini have proven unreliable** — the model
-produces malformed tool calls or no findings file at all. If a specialist
-dispatch returns empty/malformed output, the manager (Q) should fall back
-to running probes inline (on opus) and writing the findings file directly,
-rather than retry against another local model. Q (the manager) is the
-only role that defaults to a hosted model (`opus`).
+May's direction on 2026-05-16. **No opus fallback for specialist work** —
+if a dispatch returns empty or malformed findings, the manager (Q) must
+report the failure to the user and stop, NOT run the probes inline on
+opus or retry against another local model. Q (the manager) still uses
+opus for its own planning / review / synthesis work; specialist runs
+stay on the local model regardless of outcome. If the local model
+can't drive the workflow, the dispatch fails and the manager surfaces
+that as a failed run.
 
 **⚠️ Output verification:** specialist findings are first-pass triage.
 Local models are smaller and weaker than frontier ones, so Q **must**
