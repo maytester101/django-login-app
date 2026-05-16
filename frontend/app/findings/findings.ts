@@ -1,16 +1,20 @@
 // Build-time loader for the QA findings files.
 //
-// These files live OUTSIDE the frontend/ directory (at the repo root in
-// `qa/`), so we resolve relative to `process.cwd()` which is `frontend/`
-// during `next build`. Vercel clones the full repo, so the paths exist
-// on the build machine too.
+// Markdown contents are NOT read from disk at request time. They're
+// snapshotted into `data.generated.ts` by `scripts/build-findings-snapshot.mjs`
+// (wired as the `prebuild` / `predev` npm hook), which runs before
+// `next build` / `next dev` and reads the live files from `../qa/*.md`.
 //
-// This module is imported only by server components, never shipped to
-// the client. The fs reads happen once at build time and the result is
-// inlined into the static HTML output.
+// Why this indirection: Vercel only ships files under the linked project's
+// root directory (which is `frontend/`). A direct `fs.readFileSync("../qa/...")`
+// in a server component works locally but fails on Vercel because `qa/` isn't
+// in the build context. The generated module is self-contained and ships
+// inside the bundle.
 
-import { readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import {
+  FINDINGS_SNAPSHOT,
+  FINDINGS_SNAPSHOT_BUILT_AT,
+} from "./data.generated";
 
 export type Severity = "critical" | "high" | "medium" | "low";
 
@@ -27,6 +31,8 @@ export type FindingsSource = {
   repoPath: string;
   /** Raw markdown contents. */
   markdown: string;
+  /** False when the snapshot couldn't read the source file at build time. */
+  available: boolean;
   /** Severity counts derived from the markdown headings. */
   counts: Record<Severity, number>;
   /** Total findings in the file (sum of counts). */
@@ -35,9 +41,13 @@ export type FindingsSource = {
   placeholder: boolean;
 };
 
-type SourceSpec = Omit<FindingsSource, "markdown" | "counts" | "total" | "placeholder">;
-
-const REPO_ROOT = resolve(process.cwd(), "..");
+type SourceSpec = {
+  key: string;
+  title: string;
+  blurb: string;
+  idPrefix: string;
+  repoPath: string;
+};
 
 const SOURCES: SourceSpec[] = [
   {
@@ -88,18 +98,13 @@ const SOURCES: SourceSpec[] = [
 ];
 
 /**
- * Count findings per severity by looking for headings whose text starts with
- * a severity emoji followed by a BUG-… id. This is the same shape every
- * specialist SKILL.md mandates, so the counts match the per-file headings
- * exactly (and we don't have to trust a human-edited "Index by severity"
- * table).
+ * Count findings per severity by looking for headings whose text contains
+ * the file's BUG-… id prefix and a severity emoji. This matches every
+ * specialist SKILL.md's mandated heading shape.
  */
 function countSeverities(markdown: string, idPrefix: string): Record<Severity, number> {
   const counts: Record<Severity, number> = { critical: 0, high: 0, medium: 0, low: 0 };
-  // Match headings of any level whose first non-space token is a severity
-  // emoji and which contain the file's BUG-… prefix anywhere on the line.
-  const lines = markdown.split("\n");
-  for (const line of lines) {
+  for (const line of markdown.split("\n")) {
     if (!line.startsWith("#")) continue;
     if (!line.includes(`${idPrefix}-`)) continue;
     if (line.includes("🔴")) counts.critical++;
@@ -115,14 +120,17 @@ function isPlaceholder(markdown: string): boolean {
 }
 
 export function loadFindings(): FindingsSource[] {
+  const bySource = new Map(FINDINGS_SNAPSHOT.map((s) => [s.key, s]));
   return SOURCES.map((spec) => {
-    const absolute = join(REPO_ROOT, spec.repoPath);
-    const markdown = readFileSync(absolute, "utf8");
+    const snap = bySource.get(spec.key);
+    const markdown = snap?.markdown ?? `# (missing snapshot for ${spec.key})\n`;
+    const available = snap?.available ?? false;
     const counts = countSeverities(markdown, spec.idPrefix);
     const total = counts.critical + counts.high + counts.medium + counts.low;
     return {
       ...spec,
       markdown,
+      available,
       counts,
       total,
       placeholder: isPlaceholder(markdown) && total === 0,
@@ -142,5 +150,6 @@ export function rollup(sources: FindingsSource[]): Record<Severity, number> & { 
   return rollup;
 }
 
+export const SNAPSHOT_BUILT_AT = FINDINGS_SNAPSHOT_BUILT_AT;
 export const REPO_URL = "https://github.com/maytester101/django-login-app";
 export const REPO_BLOB = `${REPO_URL}/blob/main`;
