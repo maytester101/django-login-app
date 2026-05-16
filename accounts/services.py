@@ -20,10 +20,24 @@ def authenticate_user(request, username: str, password: str):
     return user
 
 
+# Matches AbstractUser.username max_length. If Django ever raises this
+# default we should bump it too.
+USERNAME_MAX_LENGTH = 150
+
+
 def register_user(request, username: str, password: str):
     username = username.strip()
     if not username:
         raise ValidationError("Username is required.")
+    # Fail fast as a JSON 400 before hitting the DB layer, which would
+    # otherwise raise DataError (length) or ValueError (NUL byte) and
+    # bubble up as an HTML 500. See BUG-API-003.
+    if len(username) > USERNAME_MAX_LENGTH:
+        raise ValidationError(
+            f"Username must be {USERNAME_MAX_LENGTH} characters or fewer."
+        )
+    if "\x00" in username:
+        raise ValidationError("Username contains invalid characters.")
     if User.objects.filter(username__iexact=username).exists():
         raise ValidationError("That username is already taken.")
     validate_password(password, user=User(username=username))
