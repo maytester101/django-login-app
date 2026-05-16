@@ -172,7 +172,7 @@ File structure:
 
 **Run:** <UTC timestamp>
 **Specialist:** exploratory-tester
-**Model:** <e.g. ollama/gpt-oss:20b, or whatever actually ran>
+**Model:** <e.g. ollama/qwen2.5:14b, or whatever actually ran>
 **Mode:** hunch-chase / pre-release / bug-class-followup
 **Brief:** <the vague-ish prompt Q gave you>
 **Time spent:** <approx>

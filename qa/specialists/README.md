@@ -15,20 +15,20 @@ and how to dispatch them.
 
 | Specialist | Status | Model | Focus |
 |---|---|---|---|
-| `api-tester` | ✅ [`api-tester/SKILL.md`](api-tester/SKILL.md) | `ollama/gpt-oss:20b` | REST endpoint contracts: status codes, payloads, auth boundaries, error shapes |
-| `security-tester` | ✅ [`security-tester/SKILL.md`](security-tester/SKILL.md) | `ollama/gpt-oss:20b` | Auth bypass, CSRF, injection, XSS, rate limiting, timing attacks |
-| `ui-tester` | ✅ [`ui-tester/SKILL.md`](ui-tester/SKILL.md) | `ollama/gpt-oss:20b` | End-to-end browser flows with Playwright; happy paths, error states, cross-origin cookie behavior |
-| `data-tester` | ✅ [`data-tester/SKILL.md`](data-tester/SKILL.md) | `ollama/gpt-oss:20b` | Schema integrity, migration safety, login-attempt logging fidelity, SQLite vs Neon parity |
-| `exploratory-tester` | ✅ [`exploratory-tester/SKILL.md`](exploratory-tester/SKILL.md) | `ollama/gpt-oss:20b` | Free-form "try to break it" sessions for high-risk releases and bug-class follow-ups |
+| `api-tester` | ✅ [`api-tester/SKILL.md`](api-tester/SKILL.md) | `ollama/qwen2.5:14b` | REST endpoint contracts: status codes, payloads, auth boundaries, error shapes |
+| `security-tester` | ✅ [`security-tester/SKILL.md`](security-tester/SKILL.md) | `ollama/qwen2.5:14b` | Auth bypass, CSRF, injection, XSS, rate limiting, timing attacks |
+| `ui-tester` | ✅ [`ui-tester/SKILL.md`](ui-tester/SKILL.md) | `ollama/qwen2.5:14b` | End-to-end browser flows with Playwright; happy paths, error states, cross-origin cookie behavior |
+| `data-tester` | ✅ [`data-tester/SKILL.md`](data-tester/SKILL.md) | `ollama/qwen2.5:14b` | Schema integrity, migration safety, login-attempt logging fidelity, SQLite vs Neon parity |
+| `exploratory-tester` | ✅ [`exploratory-tester/SKILL.md`](exploratory-tester/SKILL.md) | `ollama/qwen2.5:14b` | Free-form "try to break it" sessions for high-risk releases and bug-class follow-ups |
 
-**Model policy:** all specialists default to **`ollama/gpt-oss:20b`** —
-the local model verified to handle the strict per-specialist findings
-format. Q (the manager) is the only role on a hosted model (`opus`).
-Each specialist's `SKILL.md` documents the recommended model in its
-"Recommended dispatch config" section. Smaller local models (llama3.2,
-qwen2.5:14b) are kept installed for cheap one-off probes but should not
-be used for full specialist runs — they fail to produce the required
-findings structure consistently.
+**Model policy:** all specialists default to **`ollama/qwen2.5:14b`** per
+May's direction on 2026-05-16. **Tool-using specialist runs against any
+local model on this 16 GB Mac mini have proven unreliable** — the model
+produces malformed tool calls or no findings file at all. If a specialist
+dispatch returns empty/malformed output, the manager (Q) should fall back
+to running probes inline (on opus) and writing the findings file directly,
+rather than retry against another local model. Q (the manager) is the
+only role that defaults to a hosted model (`opus`).
 
 **⚠️ Output verification:** specialist findings are first-pass triage.
 Local models are smaller and weaker than frontier ones, so Q **must**
