@@ -45,6 +45,11 @@ type RunnerTargets = {
   webOrigin: string;
 };
 
+type SavedReport = {
+  fileName: string;
+  relativePath: string;
+};
+
 class TestSession {
   private cookies = new Map<string, string>();
   csrfToken = "";
@@ -156,7 +161,7 @@ async function saveAgentRunReport(
   agent: string,
   target: TargetEnvironment,
   output: string,
-): Promise<string> {
+): Promise<SavedReport> {
   const createdAt = new Date();
   const reportsDir = resolve(repoRoot, "allReports");
   const fileName = `${agent}-${target}-${formatTimestampForFile(createdAt)}`;
@@ -172,7 +177,10 @@ async function saveAgentRunReport(
 
   await mkdir(reportsDir, { recursive: true });
   await writeFile(reportPath, report, "utf8");
-  return relative(repoRoot, reportPath);
+  return {
+    fileName,
+    relativePath: relative(repoRoot, reportPath),
+  };
 }
 
 function parseJson(text: string): JsonValue {
@@ -536,21 +544,33 @@ export async function POST(request: NextRequest) {
       agent === "C-API"
         ? await runApiTests(config, targets, targetEnvironment)
         : await runUiTests(config, targets, targetEnvironment);
-    const reportPath = await saveAgentRunReport(repoRoot, agent, targetEnvironment, output);
-    return NextResponse.json({ output: `${output}\n\nSaved report: ${reportPath}` });
+    const report = await saveAgentRunReport(repoRoot, agent, targetEnvironment, output);
+    return NextResponse.json({
+      reportFile: report.fileName,
+      reportPath: report.relativePath,
+      reportUrl: `/api/agents/reports?file=${encodeURIComponent(report.fileName)}`,
+    });
   } catch (error) {
     const detail =
       error instanceof Error
         ? error.message
         : "Could not run the local testing agent.";
     try {
-      const reportPath = await saveAgentRunReport(
+      const report = await saveAgentRunReport(
         repoRoot,
         agent,
         targetEnvironment,
         `Result: ERROR\n\n${detail}`,
       );
-      return NextResponse.json({ detail: `${detail}\n\nSaved report: ${reportPath}` }, { status: 500 });
+      return NextResponse.json(
+        {
+          detail,
+          reportFile: report.fileName,
+          reportPath: report.relativePath,
+          reportUrl: `/api/agents/reports?file=${encodeURIComponent(report.fileName)}`,
+        },
+        { status: 500 },
+      );
     } catch {
       // If report writing also fails, return the original run error.
     }

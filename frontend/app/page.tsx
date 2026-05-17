@@ -12,7 +12,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [runningAgent, setRunningAgent] = useState<AgentName | null>(null);
-  const [agentResult, setAgentResult] = useState("");
+  const [agentStatus, setAgentStatus] = useState("");
 
   useEffect(() => {
     api.me().then(() => router.replace("/attempts")).catch(() => undefined);
@@ -43,7 +43,7 @@ export default function LoginPage() {
 
   async function runAgent(agent: AgentName) {
     setRunningAgent(agent);
-    setAgentResult(`Starting ${agent} test run on local...`);
+    setAgentStatus(`Starting ${agent} test run on local...`);
 
     try {
       const response = await fetch("/api/agents/run", {
@@ -51,10 +51,17 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ agent, target: "local" }),
       });
-      const data = (await response.json()) as { output?: string; detail?: string };
-      setAgentResult(data.output || data.detail || "Agent run completed.");
+      const data = (await response.json()) as {
+        detail?: string;
+        reportUrl?: string;
+      };
+      if (data.reportUrl) {
+        setAgentStatus("Testing report saved. Open Testing reports to download it.");
+      } else {
+        setAgentStatus(data.detail || "Agent run completed, but no report was generated.");
+      }
     } catch {
-      setAgentResult("Could not start the local agent runner.");
+      setAgentStatus("Could not start the local agent runner.");
     } finally {
       setRunningAgent(null);
     }
@@ -127,11 +134,14 @@ export default function LoginPage() {
                 : "Run UI testing agent C-UI on local"}
             </button>
           </div>
-          {agentResult ? (
-            <pre className="agent-run-output" aria-live="polite">
-              {agentResult}
-            </pre>
+          {agentStatus ? (
+            <p className="agent-run-status" aria-live="polite">
+              {agentStatus}
+            </p>
           ) : null}
+          <p className="findings-link">
+            <Link href="/testing-reports">View testing reports →</Link>
+          </p>
         </section>
 
         <section className="card testing-card" aria-labelledby="reports-title">

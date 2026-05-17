@@ -98,6 +98,13 @@ a {
   margin-top: 0;
 }
 
+.agent-run-status {
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
 .agent-run-output {
   margin: 1rem 0 0;
   max-height: 220px;
@@ -726,4 +733,37 @@ tr:last-child td {
   border-radius: 4px;
   padding: 1px 6px;
   font-size: 12px;
+}
+
+.testing-report-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.testing-report-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: grid;
+  gap: 6px;
+}
+
+.testing-report-item a {
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.testing-report-item a:hover {
+  color: var(--accent);
+}
+
+.testing-report-item span {
+  color: var(--muted);
+  font-size: 13px;
 }
