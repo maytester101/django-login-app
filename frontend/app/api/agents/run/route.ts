@@ -505,7 +505,10 @@ async function runUiTests(
 export async function POST(request: NextRequest) {
   if (!isLocalRequest(request)) {
     return NextResponse.json(
-      { detail: "Agent runner is local-only. Open the app from localhost to use it." },
+      {
+        detail:
+          "Agent runner is local-only. Open the app from http://localhost:3002 to use it.",
+      },
       { status: 403 },
     );
   }
