@@ -7,6 +7,18 @@ export const dynamic = "force-dynamic";
 
 const ALLOWED_AGENTS = new Set(["C-API", "C-UI"]);
 const ALLOWED_TARGETS = new Set(["local", "production"]);
+const DEFAULT_AGENT_CONFIGS: Record<string, AgentConfig> = {
+  "C-API": {
+    name: "C-API",
+    model: "qwen2.5:14b",
+    role: "api-tester",
+  },
+  "C-UI": {
+    name: "C-UI",
+    model: "gpt-oss:20b",
+    role: "ui-tester",
+  },
+};
 
 type AgentConfig = {
   name: string;
@@ -181,6 +193,16 @@ async function saveAgentRunReport(
     fileName,
     relativePath: relative(repoRoot, reportPath),
   };
+}
+
+async function loadAgentConfig(repoRoot: string, agent: string): Promise<AgentConfig> {
+  const agentBasePath = resolve(repoRoot, "qa", "agents", agent);
+  try {
+    const configText = await readFile(`${agentBasePath}.json`, "utf8");
+    return JSON.parse(configText) as AgentConfig;
+  } catch {
+    return DEFAULT_AGENT_CONFIGS[agent];
+  }
 }
 
 function parseJson(text: string): JsonValue {
@@ -510,16 +532,6 @@ async function runUiTests(
 }
 
 export async function POST(request: NextRequest) {
-  if (!isLocalRequest(request)) {
-    return NextResponse.json(
-      {
-        detail:
-          "Agent runner is local-only. Open the app from http://localhost:3002 to use it.",
-      },
-      { status: 403 },
-    );
-  }
-
   const body = (await request.json().catch(() => null)) as
     | { agent?: string; target?: string }
     | null;
@@ -532,10 +544,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ detail: "Unknown testing target." }, { status: 400 });
   }
 
+  const localRequest = isLocalRequest(request);
+  if (!localRequest && target !== "production") {
+    return NextResponse.json(
+      {
+        detail:
+          "Local agent runs are local-only. Open the app from http://localhost:3002 to use them.",
+      },
+      { status: 403 },
+    );
+  }
+
   const repoRoot = resolve(process.cwd(), "..");
-  const agentBasePath = resolve(repoRoot, "qa", "agents", agent);
-  const configText = await readFile(`${agentBasePath}.json`, "utf8");
-  const config = JSON.parse(configText) as AgentConfig;
+  const config = await loadAgentConfig(repoRoot, agent);
   const targetEnvironment = target as TargetEnvironment;
   const targets = getTargets(targetEnvironment, request);
 
@@ -544,6 +565,13 @@ export async function POST(request: NextRequest) {
       agent === "C-API"
         ? await runApiTests(config, targets, targetEnvironment)
         : await runUiTests(config, targets, targetEnvironment);
+    if (!localRequest) {
+      return NextResponse.json({
+        completed: true,
+        detail:
+          "Production test run completed. Report downloads are only saved when running from the local app.",
+      });
+    }
     const report = await saveAgentRunReport(repoRoot, agent, targetEnvironment, output);
     return NextResponse.json({
       reportFile: report.fileName,
@@ -555,6 +583,9 @@ export async function POST(request: NextRequest) {
       error instanceof Error
         ? error.message
         : "Could not run the local testing agent.";
+    if (!localRequest) {
+      return NextResponse.json({ detail }, { status: 500 });
+    }
     try {
       const report = await saveAgentRunReport(
         repoRoot,

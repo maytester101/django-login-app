@@ -63,10 +63,11 @@ export default function TestingDashboardPage() {
         body: JSON.stringify({ agent, target }),
       });
       const data = (await response.json()) as {
+        completed?: boolean;
         detail?: string;
         reportUrl?: string;
       };
-      if (data.reportUrl) {
+      if (data.reportUrl || data.completed) {
         return true;
       }
       setStatus(target, data.detail || `${agent} completed, but no report was generated.`);
@@ -98,9 +99,13 @@ export default function TestingDashboardPage() {
 
     setStatus(
       target,
-      `${savedReports} ${target} testing report${
-        savedReports === 1 ? "" : "s"
-      } saved. Open Testing reports to download.`,
+      target === "local"
+        ? `${savedReports} local testing report${
+            savedReports === 1 ? "" : "s"
+          } saved. Open Testing reports to download.`
+        : `${savedReports} production test${
+            savedReports === 1 ? "" : "s"
+          } completed.`,
     );
   }
 
