@@ -37,9 +37,7 @@ Use `C-UI.md` when a human or AI needs instructions. Use `C-UI.json` when an
 automation needs stable config values such as model, provider, targets, and
 constraints.
 
-## Bug Report
+## Run Reports
 
-The live bug report is stored in the database and displayed at `/agent-bugs`.
-Use local-only `qa/agents/bug-report.md` as a draft/import file, then run
-`python manage.py sync_agent_bug_report` to sync it into the database. The
-report file is ignored by Git so GitHub does not become the source of truth.
+Testing buttons on the local login page save per-run reports in `allReports/`.
+Generated report files are local artifacts and are ignored by Git.

@@ -243,8 +243,8 @@ async function runApiTests(
   let response = await session.request("GET", "/api/agent-bug-report/");
   record(
     results,
-    "public agent report endpoint returns JSON",
-    response.status === 200 && isObject(response.json),
+    "removed agent report endpoint returns 404",
+    response.status === 404 && isObject(response.json),
     `status=${response.status}`,
   );
 
@@ -421,7 +421,6 @@ async function runUiTests(
     ["/", "Sign in"],
     ["/register", "Create account"],
     ["/findings", "QA findings"],
-    ["/agent-bugs", "Agent bug report"],
   ] as const) {
     const response = await fetchText(`${targets.webBase}${path}`);
     record(

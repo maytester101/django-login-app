@@ -2,6 +2,7 @@ from django.contrib.auth import authenticate, get_user_model, login
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+from typing import Optional
 
 from .models import AgentBugReport, LoginAttempt
 
@@ -84,8 +85,8 @@ def count_open_findings(markdown: str) -> int:
     )
 
 
-def get_agent_bug_report() -> AgentBugReport:
-    return AgentBugReport.objects.get(slug=DEFAULT_AGENT_BUG_REPORT_SLUG)
+def get_agent_bug_report() -> Optional[AgentBugReport]:
+    return AgentBugReport.objects.filter(slug=DEFAULT_AGENT_BUG_REPORT_SLUG).first()
 
 
 def serialize_agent_bug_report(report: AgentBugReport) -> dict:

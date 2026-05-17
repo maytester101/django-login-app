@@ -68,4 +68,10 @@ def attempts_api(request):
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def agent_bug_report_api(request):
-    return Response(services.serialize_agent_bug_report(services.get_agent_bug_report()))
+    report = services.get_agent_bug_report()
+    if report is None:
+        return Response(
+            {"detail": "Agent bug report has been removed."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    return Response(services.serialize_agent_bug_report(report))
