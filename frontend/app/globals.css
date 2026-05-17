@@ -98,6 +98,37 @@ a {
   margin-top: 0;
 }
 
+.testing-options {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.testing-option {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.testing-option input {
+  margin: 0;
+}
+
+.testing-option span {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.testing-run-button {
+  margin-top: 0.85rem;
+}
+
 .agent-run-status {
   margin: 1rem 0 0;
   color: var(--muted);

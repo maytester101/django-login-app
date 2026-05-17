@@ -5,14 +5,10 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, api } from "@/lib/api";
 
-type AgentName = "C-API" | "C-UI";
-
 export default function LoginPage() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [runningAgent, setRunningAgent] = useState<AgentName | null>(null);
-  const [agentStatus, setAgentStatus] = useState("");
 
   useEffect(() => {
     api.me().then(() => router.replace("/attempts")).catch(() => undefined);
@@ -38,32 +34,6 @@ export default function LoginPage() {
       }
     } finally {
       setSubmitting(false);
-    }
-  }
-
-  async function runAgent(agent: AgentName) {
-    setRunningAgent(agent);
-    setAgentStatus(`Starting ${agent} test run on local...`);
-
-    try {
-      const response = await fetch("/api/agents/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agent, target: "local" }),
-      });
-      const data = (await response.json()) as {
-        detail?: string;
-        reportUrl?: string;
-      };
-      if (data.reportUrl) {
-        setAgentStatus("Testing report saved. Open Testing reports to download it.");
-      } else {
-        setAgentStatus(data.detail || "Agent run completed, but no report was generated.");
-      }
-    } catch {
-      setAgentStatus("Could not start the local agent runner.");
-    } finally {
-      setRunningAgent(null);
     }
   }
 
@@ -110,44 +80,9 @@ export default function LoginPage() {
           </Link>
         </section>
 
-        <section className="card testing-card" aria-labelledby="testing-title">
-          <h2 id="testing-title">Testing on local</h2>
-          <div className="testing-actions" aria-label="Run testing agents">
-            <button
-              className="btn-secondary"
-              type="button"
-              onClick={() => runAgent("C-API")}
-              disabled={runningAgent !== null}
-            >
-              {runningAgent === "C-API"
-                ? "Running API testing agent C-API on local..."
-                : "Run API testing agent C-API on local"}
-            </button>
-            <button
-              className="btn-secondary"
-              type="button"
-              onClick={() => runAgent("C-UI")}
-              disabled={runningAgent !== null}
-            >
-              {runningAgent === "C-UI"
-                ? "Running UI testing agent C-UI on local..."
-                : "Run UI testing agent C-UI on local"}
-            </button>
-          </div>
-          {agentStatus ? (
-            <p className="agent-run-status" aria-live="polite">
-              {agentStatus}
-            </p>
-          ) : null}
+        <section className="card testing-card" aria-label="Reports">
           <p className="findings-link">
-            <Link href="/testing-reports">View testing reports →</Link>
-          </p>
-        </section>
-
-        <section className="card testing-card" aria-labelledby="reports-title">
-          <h2 id="reports-title">Reports</h2>
-          <p className="findings-link">
-            <Link href="/findings">View QA findings →</Link>
+            <Link href="/testing-dashboard">Open Testing Dashboard →</Link>
           </p>
         </section>
       </main>
