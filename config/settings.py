@@ -188,12 +188,13 @@ _frontend_origin = os.environ.get("FRONTEND_ORIGIN", "").strip().rstrip("/")
 if _frontend_origin:
     _cors_origins.append(_frontend_origin)
 else:
-    _cors_origins.extend(
-        [
-            "http://localhost:3000",
-            "http://127.0.0.1:3000",
-        ]
-    )
+    for port in range(3000, 3006):
+        _cors_origins.extend(
+            [
+                f"http://localhost:{port}",
+                f"http://127.0.0.1:{port}",
+            ]
+        )
 
 for origin in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(","):
     origin = origin.strip().rstrip("/")

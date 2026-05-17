@@ -68,6 +68,50 @@ a {
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
 }
 
+.home-stack {
+  width: 100%;
+  max-width: 380px;
+  display: grid;
+  gap: 1rem;
+}
+
+.home-stack .card {
+  max-width: none;
+}
+
+.testing-card {
+  padding: 1.25rem 2rem;
+}
+
+.testing-card h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.testing-actions {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.testing-actions .btn-secondary {
+  margin-top: 0;
+}
+
+.agent-run-output {
+  margin: 1rem 0 0;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem;
+  color: var(--text);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
 .card-wide {
   max-width: 960px;
   width: 100%;
