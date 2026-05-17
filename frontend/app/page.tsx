@@ -48,7 +48,10 @@ export default function LoginPage() {
 
   async function runAgent(agent: AgentName, target: AgentTarget) {
     setRunningAgent(`${agent}-${target}`);
-    setAgentResults((current) => ({ ...current, [target]: "" }));
+    setAgentResults((current) => ({
+      ...current,
+      [target]: `Starting ${agent} test run on ${target}...`,
+    }));
 
     try {
       const response = await fetch("/api/agents/run", {
@@ -124,8 +127,8 @@ export default function LoginPage() {
               disabled={runningAgent !== null}
             >
               {runningAgent === "C-API-local"
-                ? "Running API testing agent C-API…"
-                : "Run API testing agent C-API"}
+                ? "Running API testing agent C-API on local..."
+                : "Run API testing agent C-API on local"}
             </button>
             <button
               className="btn-secondary"
@@ -134,8 +137,8 @@ export default function LoginPage() {
               disabled={runningAgent !== null}
             >
               {runningAgent === "C-UI-local"
-                ? "Running UI testing agent C-UI…"
-                : "Run UI testing agent C-UI"}
+                ? "Running UI testing agent C-UI on local..."
+                : "Run UI testing agent C-UI on local"}
             </button>
           </div>
           {agentResults.local ? (
@@ -158,8 +161,8 @@ export default function LoginPage() {
               disabled={runningAgent !== null}
             >
               {runningAgent === "C-API-production"
-                ? "Running API testing agent C-API…"
-                : "Run API testing agent C-API"}
+                ? "Running API testing agent C-API on production..."
+                : "Run API testing agent C-API on production"}
             </button>
             <button
               className="btn-secondary"
@@ -168,8 +171,8 @@ export default function LoginPage() {
               disabled={runningAgent !== null}
             >
               {runningAgent === "C-UI-production"
-                ? "Running UI testing agent C-UI…"
-                : "Run UI testing agent C-UI"}
+                ? "Running UI testing agent C-UI on production..."
+                : "Run UI testing agent C-UI on production"}
             </button>
           </div>
           {agentResults.production ? (
