@@ -14,4 +14,14 @@ urlpatterns = [
         api_views.agent_bug_report_api,
         name="api-agent-bug-report",
     ),
+    path(
+        "test-run-reports/",
+        api_views.test_run_reports_api,
+        name="api-test-run-reports",
+    ),
+    path(
+        "test-run-reports/<int:report_id>/download/",
+        api_views.test_run_report_download_api,
+        name="api-test-run-report-download",
+    ),
 ]

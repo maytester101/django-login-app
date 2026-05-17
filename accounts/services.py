@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from typing import Optional
 
-from .models import AgentBugReport, LoginAttempt
+from .models import AgentBugReport, LoginAttempt, TestRunReport
 
 User = get_user_model()
 
@@ -97,3 +97,41 @@ def serialize_agent_bug_report(report: AgentBugReport) -> dict:
         "updatedAt": report.updated_at.isoformat(),
         "openCount": count_open_findings(report.markdown),
     }
+
+
+def create_test_run_report(
+    *,
+    agent: str,
+    environment: str,
+    model: str,
+    status: str,
+    output: str,
+) -> TestRunReport:
+    return TestRunReport.objects.create(
+        agent=agent,
+        environment=environment,
+        model=model,
+        status=status,
+        output=output,
+    )
+
+
+def serialize_test_run_report(report: TestRunReport, *, include_output: bool = False) -> dict:
+    data = {
+        "id": report.id,
+        "agent": report.agent,
+        "environment": report.environment,
+        "model": report.model,
+        "status": report.status,
+        "createdAt": report.created_at.isoformat(),
+    }
+    if include_output:
+        data["output"] = report.output
+    return data
+
+
+def list_test_run_reports(environment: Optional[str] = None):
+    reports = TestRunReport.objects.all()
+    if environment:
+        reports = reports.filter(environment=environment)
+    return reports

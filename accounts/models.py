@@ -26,3 +26,28 @@ class AgentBugReport(models.Model):
 
     def __str__(self) -> str:
         return self.title
+
+
+class TestRunReport(models.Model):
+    ENVIRONMENT_CHOICES = [
+        ("local", "Local"),
+        ("production", "Production"),
+    ]
+    STATUS_CHOICES = [
+        ("PASS", "Pass"),
+        ("FAIL", "Fail"),
+        ("ERROR", "Error"),
+    ]
+
+    agent = models.CharField(max_length=20)
+    environment = models.CharField(max_length=20, choices=ENVIRONMENT_CHOICES)
+    model = models.CharField(max_length=80, blank=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES)
+    output = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.agent} {self.environment} {self.status} @ {self.created_at}"

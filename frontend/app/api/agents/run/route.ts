@@ -62,6 +62,10 @@ type SavedReport = {
   relativePath: string;
 };
 
+type StoredReport = {
+  id: number;
+};
+
 class TestSession {
   private cookies = new Map<string, string>();
   csrfToken = "";
@@ -212,6 +216,40 @@ function parseJson(text: string): JsonValue {
   } catch {
     return null;
   }
+}
+
+function testStatusFromOutput(output: string): "PASS" | "FAIL" {
+  return output.includes("Result: PASS") ? "PASS" : "FAIL";
+}
+
+async function saveProductionRunReport(
+  apiBase: string,
+  config: AgentConfig,
+  target: TargetEnvironment,
+  output: string,
+  status: "PASS" | "FAIL" | "ERROR",
+): Promise<StoredReport> {
+  const response = await fetch(`${apiBase}/api/test-run-reports/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      agent: config.name,
+      environment: target,
+      model: config.model,
+      status,
+      output,
+    }),
+    cache: "no-store",
+  });
+
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`Could not save production report (${response.status}): ${text}`);
+  }
+  return parseJson(text) as StoredReport;
 }
 
 function isObject(value: JsonValue): value is { [key: string]: JsonValue } {
@@ -450,7 +488,8 @@ async function runUiTests(
   for (const [path, expectedText] of [
     ["/", "Sign in"],
     ["/register", "Create account"],
-    ["/findings", "QA findings"],
+    ["/testing-dashboard", "Testing Dashboard"],
+    ["/testing-reports", "Testing reports"],
   ] as const) {
     const response = await fetchText(`${targets.webBase}${path}`);
     record(
@@ -566,10 +605,18 @@ export async function POST(request: NextRequest) {
         ? await runApiTests(config, targets, targetEnvironment)
         : await runUiTests(config, targets, targetEnvironment);
     if (!localRequest) {
+      const report = await saveProductionRunReport(
+        targets.apiBase,
+        config,
+        targetEnvironment,
+        output,
+        testStatusFromOutput(output),
+      );
       return NextResponse.json({
         completed: true,
-        detail:
-          "Production test run completed. Report downloads are only saved when running from the local app.",
+        reportId: report.id,
+        reportUrl: "/testing-reports",
+        detail: "Production test run completed and saved to Testing reports.",
       });
     }
     const report = await saveAgentRunReport(repoRoot, agent, targetEnvironment, output);
@@ -584,7 +631,25 @@ export async function POST(request: NextRequest) {
         ? error.message
         : "Could not run the local testing agent.";
     if (!localRequest) {
-      return NextResponse.json({ detail }, { status: 500 });
+      try {
+        const report = await saveProductionRunReport(
+          targets.apiBase,
+          config,
+          targetEnvironment,
+          `Result: ERROR\n\n${detail}`,
+          "ERROR",
+        );
+        return NextResponse.json(
+          {
+            detail,
+            reportId: report.id,
+            reportUrl: "/testing-reports",
+          },
+          { status: 500 },
+        );
+      } catch {
+        return NextResponse.json({ detail }, { status: 500 });
+      }
     }
     try {
       const report = await saveAgentRunReport(
