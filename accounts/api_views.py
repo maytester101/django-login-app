@@ -63,3 +63,9 @@ def logout_api(request):
 @permission_classes([IsAuthenticated])
 def attempts_api(request):
     return Response(services.serialize_attempts(request.user))
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def agent_bug_report_api(request):
+    return Response(services.serialize_agent_bug_report(services.get_agent_bug_report()))

@@ -3,7 +3,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
-from .models import LoginAttempt
+from .models import AgentBugReport, LoginAttempt
 
 User = get_user_model()
 
@@ -71,3 +71,28 @@ def serialize_attempts(user):
             username__iexact=user.username
         )
     ]
+
+
+DEFAULT_AGENT_BUG_REPORT_SLUG = "agent-bug-report"
+
+
+def count_open_findings(markdown: str) -> int:
+    return sum(
+        1
+        for line in markdown.splitlines()
+        if line.strip().lower() == "- **status:** open"
+    )
+
+
+def get_agent_bug_report() -> AgentBugReport:
+    return AgentBugReport.objects.get(slug=DEFAULT_AGENT_BUG_REPORT_SLUG)
+
+
+def serialize_agent_bug_report(report: AgentBugReport) -> dict:
+    return {
+        "slug": report.slug,
+        "title": report.title,
+        "markdown": report.markdown,
+        "updatedAt": report.updated_at.isoformat(),
+        "openCount": count_open_findings(report.markdown),
+    }

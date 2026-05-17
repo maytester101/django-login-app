@@ -11,4 +11,5 @@ When running `C-API` or `C-UI` tests:
 - Record the model used, target URL, testing start time, testing end time, and run result.
 - Add new reproducible bugs with severity, status, repro steps, expected, actual, and evidence.
 - Mark previously logged bugs as verified fixed when the run proves they are fixed.
-- Push and deploy after updating the report when the user asks to run tests against production.
+- Run `python manage.py sync_agent_bug_report` after report edits so `/agent-bugs` refreshes from the database without a frontend deploy.
+- Push/deploy only when code or schema changed, or when the user explicitly asks.

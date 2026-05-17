@@ -9,6 +9,9 @@ Shared bug log for findings reported by the persistent QA agents `C-API` and
 - Keep reproduction steps short and specific.
 - Use the severity scale: Critical, High, Medium, Low.
 - Do not mark a bug fixed until it has been retested.
+- After editing this file, sync it to the database with
+  `python manage.py sync_agent_bug_report`. The `/agent-bugs` page reads from
+  the database, so a frontend deploy is not required for report-only updates.
 
 ## C-API Findings
 

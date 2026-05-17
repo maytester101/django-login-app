@@ -1,29 +1,47 @@
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import {
-  AGENT_BUG_REPORT,
-  AGENT_BUG_REPORT_AVAILABLE,
-  AGENT_BUG_REPORT_BUILT_AT,
-  AGENT_BUG_REPORT_PATH,
-} from "./data.generated";
 
 export const metadata = {
   title: "Agent bug report - django-login-app",
   description: "Bug report logged by the persistent C-API and C-UI agents.",
 };
 
-const REPO_BLOB = "https://github.com/maytester101/django-login-app/blob/main";
+export const dynamic = "force-dynamic";
 
-function countOpenFindings(markdown: string): number {
-  return markdown
-    .split("\n")
-    .filter((line) => line.trim().toLowerCase() === "- **status:** open")
-    .length;
+type AgentBugReport = {
+  slug: string;
+  title: string;
+  markdown: string;
+  updatedAt: string;
+  openCount: number;
+};
+
+const API_BASE = (
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.API_BACKEND_URL ||
+  "http://127.0.0.1:8000"
+).replace(/\/$/, "");
+
+async function loadAgentBugReport(): Promise<
+  | { report: AgentBugReport; error?: never }
+  | { report?: never; error: string }
+> {
+  try {
+    const response = await fetch(`${API_BASE}/api/agent-bug-report/`, {
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      return { error: `Could not load agent bug report (${response.status}).` };
+    }
+    return { report: (await response.json()) as AgentBugReport };
+  } catch {
+    return { error: "Could not load agent bug report." };
+  }
 }
 
-export default function AgentBugsPage() {
-  const openCount = countOpenFindings(AGENT_BUG_REPORT);
+export default async function AgentBugsPage() {
+  const result = await loadAgentBugReport();
 
   return (
     <div className="findings-page">
@@ -39,48 +57,50 @@ export default function AgentBugsPage() {
         </div>
 
         <p className="findings-subtitle">
-          Live snapshot of bugs logged by the persistent tester agents{" "}
-          <strong>C-API</strong> and <strong>C-UI</strong>. Source markdown:{" "}
-          <a
-            href={`${REPO_BLOB}/${AGENT_BUG_REPORT_PATH}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {AGENT_BUG_REPORT_PATH}
-          </a>
-          .
+          Live database-backed report for bugs logged by the persistent tester
+          agents <strong>C-API</strong> and <strong>C-UI</strong>. This page
+          fetches from Django on every request, so report updates do not require
+          a frontend redeploy.
         </p>
 
         <div className="findings-summary">
           <div className="findings-summary-totals">
-            <span className="findings-summary-num">{openCount}</span>
+            <span className="findings-summary-num">
+              {result.report?.openCount ?? "!"}
+            </span>
             <span className="findings-summary-label">open agent findings</span>
           </div>
           <p className="findings-summary-note">
-            Snapshot built at{" "}
-            <time dateTime={AGENT_BUG_REPORT_BUILT_AT}>
-              {new Date(AGENT_BUG_REPORT_BUILT_AT).toLocaleString("en-US", {
-                timeZone: "UTC",
-                timeZoneName: "short",
-              })}
-            </time>
-            .
+            {result.report ? (
+              <>
+                Database report updated at{" "}
+                <time dateTime={result.report.updatedAt}>
+                  {new Date(result.report.updatedAt).toLocaleString("en-US", {
+                    timeZone: "UTC",
+                    timeZoneName: "short",
+                  })}
+                </time>
+                .
+              </>
+            ) : (
+              result.error
+            )}
           </p>
         </div>
-
-        {!AGENT_BUG_REPORT_AVAILABLE ? (
-          <p className="findings-count-note">
-            The source report was not available when this page was built.
-          </p>
-        ) : null}
       </header>
 
       <main className="findings-main">
         <section className="findings-section">
           <article className="findings-markdown">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {AGENT_BUG_REPORT}
-            </ReactMarkdown>
+            {result.report ? (
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {result.report.markdown}
+              </ReactMarkdown>
+            ) : (
+              <div className="alert-error" role="alert">
+                {result.error}
+              </div>
+            )}
           </article>
         </section>
       </main>

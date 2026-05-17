@@ -9,4 +9,9 @@ urlpatterns = [
     path("register/", api_views.register_api, name="api-register"),
     path("logout/", api_views.logout_api, name="api-logout"),
     path("attempts/", api_views.attempts_api, name="api-attempts"),
+    path(
+        "agent-bug-report/",
+        api_views.agent_bug_report_api,
+        name="api-agent-bug-report",
+    ),
 ]
