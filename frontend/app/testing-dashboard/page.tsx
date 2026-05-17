@@ -116,9 +116,9 @@ export default function TestingDashboardPage() {
 
     return (
       <section className="card testing-card" aria-labelledby={`testing-${target}-title`}>
+        <h2 id={`testing-${target}-title`}>{title}</h2>
         <p className="subtitle">Select AI agents for testing and click Run.</p>
 
-        <h2 id={`testing-${target}-title`}>{title}</h2>
         <div className="testing-options" aria-label={`Select ${target} testing agents`}>
           {AGENTS.map((agent) => (
             <label className="testing-option" key={`${target}-${agent}`}>
