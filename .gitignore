@@ -16,3 +16,5 @@ frontend/.next/
 frontend/.env*.local
 frontend/.vercel
 qa/agents/bug-report.md
+allReports/*
+!allReports/.gitkeep

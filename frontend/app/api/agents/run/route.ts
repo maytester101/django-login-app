@@ -1,5 +1,5 @@
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { relative, resolve } from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -137,6 +137,42 @@ function isLocalRequest(request: NextRequest): boolean {
 
 function trimOutput(value: string): string {
   return value.length > 6000 ? `${value.slice(0, 6000)}\n\n[output truncated]` : value;
+}
+
+function formatTimestampForFile(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+    pad(date.getHours()),
+    pad(date.getMinutes()),
+    pad(date.getSeconds()),
+  ].join("-");
+}
+
+async function saveAgentRunReport(
+  repoRoot: string,
+  agent: string,
+  target: TargetEnvironment,
+  output: string,
+): Promise<string> {
+  const createdAt = new Date();
+  const reportsDir = resolve(repoRoot, "allReports");
+  const fileName = `${agent}-${target}-${formatTimestampForFile(createdAt)}`;
+  const reportPath = resolve(reportsDir, fileName);
+  const report = [
+    `Agent: ${agent}`,
+    `Environment: ${target}`,
+    `Created: ${createdAt.toISOString()}`,
+    "",
+    output,
+    "",
+  ].join("\n");
+
+  await mkdir(reportsDir, { recursive: true });
+  await writeFile(reportPath, report, "utf8");
+  return relative(repoRoot, reportPath);
 }
 
 function parseJson(text: string): JsonValue {
@@ -490,19 +526,32 @@ export async function POST(request: NextRequest) {
   const agentBasePath = resolve(repoRoot, "qa", "agents", agent);
   const configText = await readFile(`${agentBasePath}.json`, "utf8");
   const config = JSON.parse(configText) as AgentConfig;
-  const targets = getTargets(target as TargetEnvironment, request);
+  const targetEnvironment = target as TargetEnvironment;
+  const targets = getTargets(targetEnvironment, request);
 
   try {
     const output =
       agent === "C-API"
-        ? await runApiTests(config, targets, target as TargetEnvironment)
-        : await runUiTests(config, targets, target as TargetEnvironment);
-    return NextResponse.json({ output });
+        ? await runApiTests(config, targets, targetEnvironment)
+        : await runUiTests(config, targets, targetEnvironment);
+    const reportPath = await saveAgentRunReport(repoRoot, agent, targetEnvironment, output);
+    return NextResponse.json({ output: `${output}\n\nSaved report: ${reportPath}` });
   } catch (error) {
     const detail =
       error instanceof Error
         ? error.message
         : "Could not run the local testing agent.";
+    try {
+      const reportPath = await saveAgentRunReport(
+        repoRoot,
+        agent,
+        targetEnvironment,
+        `Result: ERROR\n\n${detail}`,
+      );
+      return NextResponse.json({ detail: `${detail}\n\nSaved report: ${reportPath}` }, { status: 500 });
+    } catch {
+      // If report writing also fails, return the original run error.
+    }
     return NextResponse.json({ detail }, { status: 500 });
   }
 }
