@@ -6,18 +6,13 @@ import { useRouter } from "next/navigation";
 import { ApiError, api } from "@/lib/api";
 
 type AgentName = "C-API" | "C-UI";
-type AgentTarget = "local" | "production";
-type RunningAgent = `${AgentName}-${AgentTarget}`;
 
 export default function LoginPage() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [runningAgent, setRunningAgent] = useState<RunningAgent | null>(null);
-  const [agentResults, setAgentResults] = useState<Record<AgentTarget, string>>({
-    local: "",
-    production: "",
-  });
+  const [runningAgent, setRunningAgent] = useState<AgentName | null>(null);
+  const [agentResult, setAgentResult] = useState("");
 
   useEffect(() => {
     api.me().then(() => router.replace("/attempts")).catch(() => undefined);
@@ -46,29 +41,20 @@ export default function LoginPage() {
     }
   }
 
-  async function runAgent(agent: AgentName, target: AgentTarget) {
-    setRunningAgent(`${agent}-${target}`);
-    setAgentResults((current) => ({
-      ...current,
-      [target]: `Starting ${agent} test run on ${target}...`,
-    }));
+  async function runAgent(agent: AgentName) {
+    setRunningAgent(agent);
+    setAgentResult(`Starting ${agent} test run on local...`);
 
     try {
       const response = await fetch("/api/agents/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agent, target }),
+        body: JSON.stringify({ agent, target: "local" }),
       });
       const data = (await response.json()) as { output?: string; detail?: string };
-      setAgentResults((current) => ({
-        ...current,
-        [target]: data.output || data.detail || "Agent run completed.",
-      }));
+      setAgentResult(data.output || data.detail || "Agent run completed.");
     } catch {
-      setAgentResults((current) => ({
-        ...current,
-        [target]: "Could not start the local agent runner.",
-      }));
+      setAgentResult("Could not start the local agent runner.");
     } finally {
       setRunningAgent(null);
     }
@@ -123,61 +109,27 @@ export default function LoginPage() {
             <button
               className="btn-secondary"
               type="button"
-              onClick={() => runAgent("C-API", "local")}
+              onClick={() => runAgent("C-API")}
               disabled={runningAgent !== null}
             >
-              {runningAgent === "C-API-local"
+              {runningAgent === "C-API"
                 ? "Running API testing agent C-API on local..."
                 : "Run API testing agent C-API on local"}
             </button>
             <button
               className="btn-secondary"
               type="button"
-              onClick={() => runAgent("C-UI", "local")}
+              onClick={() => runAgent("C-UI")}
               disabled={runningAgent !== null}
             >
-              {runningAgent === "C-UI-local"
+              {runningAgent === "C-UI"
                 ? "Running UI testing agent C-UI on local..."
                 : "Run UI testing agent C-UI on local"}
             </button>
           </div>
-          {agentResults.local ? (
+          {agentResult ? (
             <pre className="agent-run-output" aria-live="polite">
-              {agentResults.local}
-            </pre>
-          ) : null}
-        </section>
-
-        <section
-          className="card testing-card"
-          aria-labelledby="testing-production-title"
-        >
-          <h2 id="testing-production-title">Testing on production</h2>
-          <div className="testing-actions" aria-label="Run production testing agents">
-            <button
-              className="btn-secondary"
-              type="button"
-              onClick={() => runAgent("C-API", "production")}
-              disabled={runningAgent !== null}
-            >
-              {runningAgent === "C-API-production"
-                ? "Running API testing agent C-API on production..."
-                : "Run API testing agent C-API on production"}
-            </button>
-            <button
-              className="btn-secondary"
-              type="button"
-              onClick={() => runAgent("C-UI", "production")}
-              disabled={runningAgent !== null}
-            >
-              {runningAgent === "C-UI-production"
-                ? "Running UI testing agent C-UI on production..."
-                : "Run UI testing agent C-UI on production"}
-            </button>
-          </div>
-          {agentResults.production ? (
-            <pre className="agent-run-output" aria-live="polite">
-              {agentResults.production}
+              {agentResult}
             </pre>
           ) : null}
         </section>
