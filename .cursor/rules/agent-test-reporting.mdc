@@ -7,9 +7,10 @@ alwaysApply: true
 
 When running `C-API` or `C-UI` tests:
 
-- Update `qa/agents/bug-report.md` in the matching agent section before finishing.
+- Update local-only `qa/agents/bug-report.md` in the matching agent section before finishing.
 - Record the model used, target URL, testing start time, testing end time, and run result.
 - Add new reproducible bugs with severity, status, repro steps, expected, actual, and evidence.
 - Mark previously logged bugs as verified fixed when the run proves they are fixed.
 - Run `python manage.py sync_agent_bug_report` after report edits so `/agent-bugs` refreshes from the database without a frontend deploy.
+- Do not commit `qa/agents/bug-report.md`; it is ignored and the database is the live source of truth.
 - Push/deploy only when code or schema changed, or when the user explicitly asks.

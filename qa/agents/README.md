@@ -39,4 +39,7 @@ constraints.
 
 ## Bug Report
 
-Use [`bug-report.md`](bug-report.md) to log bugs found by `C-API` and `C-UI`.
+The live bug report is stored in the database and displayed at `/agent-bugs`.
+Use local-only `qa/agents/bug-report.md` as a draft/import file, then run
+`python manage.py sync_agent_bug_report` to sync it into the database. The
+report file is ignored by Git so GitHub does not become the source of truth.
